@@ -1,8 +1,13 @@
 #pragma TextEncoding = "MacRoman"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
-
+//This procedure works in Igor 7.0 and later
+////	@param	nRows		Montage will be nRows tall
+////	@param	nColumns	Montage will be nColumns wide
+////	@param	grout		Pixels of grouting between panels (no border)
 Function MontageMaker(nRows,nColumns,grout)
 	Variable nRows,nColumns,grout
+	
+	//ImageLoad/P=Desktop/T=tiff/S=0/C=-1/LR3D/Q/N=image "kf3bw.tif"
 	
 	Wave/Z image
 	if(!WaveExists(image))
