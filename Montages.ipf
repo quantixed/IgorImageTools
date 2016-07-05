@@ -1,22 +1,39 @@
 #pragma TextEncoding = "MacRoman"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
+// Menu item for easy execution
+Menu "Macros"
+	"Make Montage...",  MontageSetUp()
+End
+
+Function MontageSetUp()
+	ImageLoad/T=tiff/S=0/C=-1/LR3D/Q/N=masterImage ""
+	WAVE/Z masterImage
+	
+	Variable rr,cc,gg
+	Prompt rr, "Rows"
+	Prompt cc, "Columns"
+	Prompt gg, "Grout (px)"
+	DoPrompt "Montage details", rr,cc,gg
+	MontageMaker(masterImage,rr,cc,gg)
+End
+
 //This procedure works in Igor 7.0 and later
-////	@param	nRows		Montage will be nRows tall
-////	@param	nColumns	Montage will be nColumns wide
-////	@param	grout		Pixels of grouting between panels (no border)
-Function MontageMaker(nRows,nColumns,grout)
+////	@param	masterImage	TIFF stack to be split
+////	@param	nRows			Montage will be nRows tall
+////	@param	nColumns		Montage will be nColumns wide
+////	@param	grout			Pixels of grouting between panels (no border)
+Function MontageMaker(masterImage,nRows,nColumns,grout)
+	Wave masterImage
 	Variable nRows,nColumns,grout
 	
-	//ImageLoad/P=Desktop/T=tiff/S=0/C=-1/LR3D/Q/N=image "kf3bw.tif"
-	
-	Wave/Z image
-	if(!WaveExists(image))
+	if(!WaveExists(masterImage))
+		Print "Image does not exist"
 		return 0
 	endif
 	
-	Variable nLayers = dimsize(image,2)
-	Variable xSize = dimsize(image,1)
-	Variable ySize = dimsize(image,0)
+	Variable nLayers = dimsize(masterImage,2)
+	Variable xSize = dimsize(masterImage,1)
+	Variable ySize = dimsize(masterImage,0)
 	Variable x1 = (xSize * nColumns) + (grout * (nColumns-1))
 	Variable y1 = (ySize * nRows) + (grout * (nRows-1))
 	Make/B/U/O/N=(x1,y1) newMontage=255
@@ -25,7 +42,7 @@ Function MontageMaker(nRows,nColumns,grout)
 	Variable i
 	
 	for(i = 0; i < nLayers; i += 1)
-		Duplicate/O/FREE/RMD=[][][i,i] image, subImage
+		Duplicate/O/FREE/RMD=[][][i,i] masterImage, subImage
 		xPos = mod(i,nColumns)
 		yPos = floor(i/nColumns)
 		x1 = (xSize * xPos) + (grout * xPos)
