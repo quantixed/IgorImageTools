@@ -5,7 +5,8 @@ Menu "Macros"
 	"Make Montage...",  MontageSetUp()
 End
 
-//Triggers load of TIFF stack for making montage
+// Requires 8-bit images. Will accept RGB and grayscale.
+// Triggers load of TIFF stack for making montage
 Function MontageSetUp()
 	ImageLoad/O/Q/T=tiff/S=0/C=-1/LR3D/N=masterImage ""
 	WAVE/Z masterImage
