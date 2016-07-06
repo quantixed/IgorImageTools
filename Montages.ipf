@@ -5,16 +5,18 @@ Menu "Macros"
 	"Make Montage...",  MontageSetUp()
 End
 
+//Triggers load of TIFF stack for making montage
 Function MontageSetUp()
-	ImageLoad/T=tiff/S=0/C=-1/LR3D/Q/N=masterImage ""
+	ImageLoad/O/T=tiff/S=0/C=-1/LR3D/N=masterImage ""
 	WAVE/Z masterImage
+	String imagePath = S_path
 	
 	Variable rr,cc,gg
 	Prompt rr, "Rows"
 	Prompt cc, "Columns"
 	Prompt gg, "Grout (px)"
 	DoPrompt "Montage details", rr,cc,gg
-	MontageMaker(masterImage,rr,cc,gg)
+	MontageMaker(masterImage,rr,cc,gg, imagePath)
 End
 
 //This procedure works in Igor 7.0 and later
@@ -22,9 +24,10 @@ End
 ////	@param	nRows			Montage will be nRows tall
 ////	@param	nColumns		Montage will be nColumns wide
 ////	@param	grout			Pixels of grouting between panels (no border)
-Function MontageMaker(masterImage,nRows,nColumns,grout)
+Function MontageMaker(masterImage,nRows,nColumns,grout,imagePath)
 	Wave masterImage
 	Variable nRows,nColumns,grout
+	String imagePath
 	
 	if(!WaveExists(masterImage))
 		Print "Image does not exist"
@@ -49,5 +52,7 @@ Function MontageMaker(masterImage,nRows,nColumns,grout)
 		y1 = (ySize * yPos) + (grout * yPos)
 		ImageTransform /INSI=subImage/INSX=(x1)/INSY=(y1) InsertImage newMontage
 	endfor
-	ImageSave/T="tiff" newMontage
+	KillWindow/Z result
+	NewImage/N=result newMontage
+	ImageSave/P=imagePath/T="tiff" newMontage
 End
