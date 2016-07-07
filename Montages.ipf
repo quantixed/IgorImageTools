@@ -37,7 +37,7 @@ Function MontageSetUp()
 		Print "Montage has", ((rr * cc) - nSlices), "blanks."
 	endif 
 	
-	MontageMaker(masterImage,rr,cc,gg,S_path)
+	MontageMaker(masterImage,rr,cc,gg,S_path,S_fileName)
 End
 
 //This procedure works in Igor 7.0 and later
@@ -46,11 +46,13 @@ End
 ////	@param	nColumns		Montage will be nColumns wide
 ////	@param	grout			Pixels of grouting between panels (no border)
 ////	@param	pathString	String containing path to original TIFF stack
-Function MontageMaker(masterImage,nRows,nColumns,grout,pathString)
+////	@param	fileName		String containing name of original TIFF stack
+Function MontageMaker(masterImage,nRows,nColumns,grout,pathString,fileName)
 	Wave masterImage
 	Variable nRows,nColumns,grout
-	String pathString
+	String pathString,fileName
 	NewPath/O/Q imagePath, pathString
+	String nmName = replaceString(".tif",fileName,"") + "_montage.tif"
 	
 	if(!WaveExists(masterImage))
 		Print "Image does not exist"
@@ -95,5 +97,5 @@ Function MontageMaker(masterImage,nRows,nColumns,grout,pathString)
 	KillWindow/Z result
 	NewImage/N=result newMontage
 	KillWaves masterImage
-	ImageSave/P=imagePath/T="tiff" newMontage
+	ImageSave/P=imagePath/T="tiff" newMontage as nmName
 End
