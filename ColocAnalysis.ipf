@@ -5,16 +5,24 @@ Function Coloc(m0,m1,bg0,bg1,frameNum)
 	Variable bg0,bg1
 	Variable frameNum
 	
-	Variable nPx = dimsize(m0,0) * dimsize(m1,1)
+	Variable nXdim = dimsize(m0,0)
+	Variable nYdim = dimsize(m0,1)
+	Variable nPx = nXdim * nYdim
 	
-	Duplicate/O/RMD=[][][frameNum] m0,d0
-	Duplicate/O/RMD=[][][frameNum] m1,d1
+	Make/O/N=(nXdim,nYdim) d0,d1
 	
-	d0 = ((d0[p][q] <= bg0) || (d1[p][q] <= bg1)) ? d0[p][q] : NaN
-	d1 = ((d0[p][q] <= bg0) || (d1[p][q] <= bg1)) ? d1[p][q] : NaN
+	d0 = (m0[p][q][frameNum] <= bg0 || m1[p][q][frameNum] <= bg1) ? NaN : m0[p][q][frameNum]
+	d1 = (m0[p][q][frameNum] <= bg0 || m1[p][q][frameNum] <= bg1) ? NaN : m1[p][q][frameNum]
 	
 	Redimension/N=(nPx) d0
 	Redimension/N=(nPx) d1
+	WaveTransform zapnans d0
+	WaveTransform zapnans d1
 	
-	Display d1 vs d0
+	DoWindow/K Result
+	Display/N=Result d1 vs d0
+	ModifyGraph/W=Result mode=2
+	ModifyGraph/W=Result width={Plan,1,bottom,left}
+	SetAxis/W=Result/A/N=1/E=1 left
+	SetAxis/W=Result/A/N=1/E=1 bottom
 End
