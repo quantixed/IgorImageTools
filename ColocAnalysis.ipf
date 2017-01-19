@@ -109,3 +109,23 @@ Function Coloc(m0,m1,bg0,bg1,frameNum)
 	WaveTransform zapnans d0
 	WaveTransform zapnans d1
 End
+
+// Load results from ComDet 0.3.5
+Function Load2ChComDetResults()
+	// Load Channel 1 output from ComDet
+	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
+	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
+	// Load Channel 2 output from ComDet
+	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
+	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
+	// Now make 2D waves
+	Variable nFrames
+	nFrames = dimsize(mat1,0)
+	Make/O/N=(nFrames, 3) ComDet_1
+	ComDet_1 = round(mat1[p][q])
+	nFrames = dimsize(mat2,0)
+	Make/O/N=(nFrames, 3) ComDet_2
+	ComDet_2 = round(mat2[p][q])
+	// Cleanup
+	KillWaves mat1,mat2
+End
