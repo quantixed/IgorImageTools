@@ -1,5 +1,14 @@
 #pragma TextEncoding = "MacRoman"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
+#include <All IP Procedures>
+Menu "Macros"
+	"ColocAnalysis...",  ColocAnalysis()
+End
+
+Function ColocAnalysis()
+	Load2ChComDetResults()
+	Make2ChMasks()
+End
 
 Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
 	Wave m0,m1
@@ -128,4 +137,54 @@ Function Load2ChComDetResults()
 	ComDet_2 = round(mat2[p][q])
 	// Cleanup
 	KillWaves mat1,mat2
+End
+
+Function Make2ChMasks()
+	WAVE ComDet_1,ComDet_2
+	// hard code the tiffs
+	Wave m0 = 'ch1.tif'
+	Wave m1 = 'ch2.tif'
+	
+	if(dimsize(m0,2) != dimsize(m1,2))
+		Abort "Different number of frames in each channel"
+	endif
+	
+	if((dimsize(m0,0) != dimsize(m1,0)) || (dimsize(m0,1) != dimsize(m1,1)))
+		Abort "Different sizes of frames in each channel"
+	endif
+	
+	Make/O/N=(dimsize(m0,0),dimsize(m0,1),dimsize(m0,2)) mask_1=0,mask_2=0
+	Variable xx,yy,zz
+	Variable nSpots
+	
+	Variable i
+	
+	// ch1
+	nSpots = dimsize(ComDet_1,0)
+	for(i = 0; i < nSpots; i += 1)
+		xx = ComDet_1[i][1] - 1
+		yy = ComDet_1[i][2] - 1
+		zz = ComDet_1[i][0] - 1	// ImageJ is 1-based
+		MakeThatMask(mask_1,xx,yy,zz)
+	endfor
+	// ch2
+	nSpots = dimsize(ComDet_2,0)
+	for(i = 0; i < nSpots; i += 1)
+		xx = ComDet_2[i][1] - 1
+		yy = ComDet_2[i][2] - 1
+		zz = ComDet_2[i][0] - 1 // ImageJ is 1-based
+		MakeThatMask(mask_2,xx,yy,zz)
+	endfor
+End
+
+Function MakeThatMask(m0,xPos,yPos,zPos)
+	Wave m0
+	Variable xPos,yPos,zPos
+	Variable i,j
+	
+	for(i = 0; i < 3; i += 1)
+		for(j = 0; j < 3; j += 1)
+			m0[(i-1)+xPos][(j-1)+yPos][zPos] = 1
+		endfor
+	endfor
 End
