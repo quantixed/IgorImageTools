@@ -6,6 +6,12 @@ Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
 	Variable bg0,bg1
 	Variable normOpt
 	
+	NewPath/O/Q/M="Please find disk folder" OutputFolder
+	if (V_flag!=0)
+		DoAlert 0, "Disk folder error"
+		Return -1
+	endif
+	
 	WaveStats/Q m0
 	Variable m0Max = V_max
 	Variable m0Frames = dimsize(m0,2)
@@ -28,6 +34,7 @@ Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
 	Make/O/N=1 d0,d1
 	Display/N=Result d1 vs d0
 	ModifyGraph/W=Result mode=2
+	ModifyGraph/W=Result rgb(d1)=(0,0,65535)
 	ModifyGraph/W=Result width={Plan,1,bottom,left}
 	if(normOpt == 0)
 		SetAxis/W=Result left 0,XYmax
@@ -38,15 +45,17 @@ Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
 	else
 		Abort "Use 0 or 1 for normalisation option"
 	endif
-		ModifyGraph/W=Result gbRGB=(62258,62258,62258) // 5% grey
+	ModifyGraph/W=Result gbRGB=(62258,62258,62258) // 5% grey
 	ModifyGraph/W=Result margin=5
 	ModifyGraph/W=Result noLabel=2
 	ModifyGraph/W=Result grid=1
-	ModifyGraph/W=Result gridStyle=1,gridHair=0
-	ModifyGraph/W=Result manTick={0,0.02,0,2},manMinor={0,50}
+	ModifyGraph/W=Result gridStyle=5,gridHair=0
+	ModifyGraph/W=Result manTick={0,0.2,0,2},manMinor={0,1}
 	ModifyGraph/W=Result axRGB=(65535,65535,65535),tlblRGB=(65535,65535,65535),alblRGB=(65535,65535,65535),gridRGB=(65535,65535,65535)
 	TextBox/W=Result/C/N=text0/F=0/B=1/A=LT/X=0.00/Y=0.00 NameOfWave(m1)
 	TextBox/W=Result/C/N=text1/F=0/B=1/A=RB/X=0.00/Y=0.00 NameOfWave(m0)
+	
+	String iString, tiffName
 	
 	
 	for(i = 0; i < m0Frames; i += 1)
@@ -62,21 +71,21 @@ Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
 		DoUpdate
 		DoWindow/F Result
 		if(i == 0)
-			NewMovie/O/CTYP="jpeg"/F=15 as "coloc"
+			NewMovie/O/P=OutputFolder/CTYP="jpeg"/F=15 as "coloc"
 		endif
 		AddMovieFrame
-//		//save out pics for gif assembly in ImageJ
-//		if( i >= 0 && i < 10)
-//			iString = "000" + num2str(i)
-//		elseif( i >=10 && i < 100)
-//			iString = "00" + num2str(i)
-//		elseif(i >= 100 && i < 1000)
-//			iString = "0" + num2str(i)
-//		elseif(i >= 1000 && i < 10000)
-//			iString = num2str(i)
-//		endif
-//		tiffName = "trkbytrk" + iString + ".tif"
-//		SavePICT/P=OutputFolder/E=-7/B=288 as tiffName
+		//save out pics for gif assembly in ImageJ
+		if( i >= 0 && i < 10)
+			iString = "000" + num2str(i)
+		elseif( i >=10 && i < 100)
+			iString = "00" + num2str(i)
+		elseif(i >= 100 && i < 1000)
+			iString = "0" + num2str(i)
+		elseif(i >= 1000 && i < 10000)
+			iString = num2str(i)
+		endif
+		tiffName = "coloc" + iString + ".tif"
+		SavePICT/P=OutputFolder/E=-7/B=288 as tiffName
 	endfor
 	CloseMovie
 End
