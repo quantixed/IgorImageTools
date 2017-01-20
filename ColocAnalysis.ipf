@@ -6,19 +6,123 @@ Menu "Macros"
 End
 
 Function ColocAnalysis()
-	// LoadImagesForAnalysis()
-	Load2ChComDetResults()
+	LoadImagesForAnalysis()
 	Make2ChMasks()
 	MakeMaskedImagesAndAnalyse()
 End
 
-//	NewPath/O/Q/M="Please find disk folder" OutputFolder
-//	if (V_flag!=0)
-//		DoAlert 0, "Disk folder error"
-//		Return -1
-//	endif
-//	PathInfo/S OutputFolder
-//	String OutputFolderName = S_path
+Function LoadImagesForAnalysis()
+	// Load channel 1 tiff
+	ImageLoad/T=tiff/N=ch1tiff/O/S=0/C=-1 ""
+	// Load channel 2 tiff
+	ImageLoad/T=tiff/N=ch2tiff/O/S=0/C=-1 ""
+	// Now load the ComDet data
+	Load2ChComDetResults()
+	// Now specify the OutputFolder
+	NewPath/O/Q/M="Please find disk folder" OutputFolder
+	if (V_flag!=0)
+		DoAlert 0, "Disk folder error"
+		Return -1
+	endif
+	PathInfo/S OutputFolder
+	String/G gOutputFolder = S_path
+End
+
+// Load results from ComDet 0.3.5
+Function Load2ChComDetResults()
+	// Load Channel 1 output from ComDet
+	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
+	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
+	// Load Channel 2 output from ComDet
+	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
+	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
+	// Now make 2D waves
+	Variable nFrames
+	nFrames = dimsize(mat1,0)
+	Make/O/N=(nFrames, 3) ComDet_1
+	ComDet_1 = round(mat1[p][q])
+	nFrames = dimsize(mat2,0)
+	Make/O/N=(nFrames, 3) ComDet_2
+	ComDet_2 = round(mat2[p][q])
+	// Cleanup
+	KillWaves mat1,mat2
+End
+
+Function Make2ChMasks()
+
+	WAVE ComDet_1,ComDet_2
+	WAVE ch1tiff, ch2tiff
+	
+	if(dimsize(ch1tiff,2) != dimsize(ch2tiff,2))
+		Abort "Different number of frames in each channel"
+	endif
+	
+	if((dimsize(ch1tiff,0) != dimsize(ch2tiff,0)) || (dimsize(ch1tiff,1) != dimsize(ch2tiff,1)))
+		Abort "Different sizes of frames in each channel"
+	endif
+	
+	Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_1=0, mask_2=0, mask_3
+	Variable xx,yy,zz
+	Variable nSpots
+	
+	Variable i
+	
+	// ch1
+	nSpots = dimsize(ComDet_1,0)
+	for(i = 0; i < nSpots; i += 1)
+		xx = ComDet_1[i][1] - 1
+		yy = ComDet_1[i][2] - 1
+		zz = ComDet_1[i][0] - 1	// ImageJ is 1-based
+		MakeThatMask(mask_1,xx,yy,zz)
+	endfor
+	// ch2
+	nSpots = dimsize(ComDet_2,0)
+	for(i = 0; i < nSpots; i += 1)
+		xx = ComDet_2[i][1] - 1
+		yy = ComDet_2[i][2] - 1
+		zz = ComDet_2[i][0] - 1 // ImageJ is 1-based
+		MakeThatMask(mask_2,xx,yy,zz)
+	endfor
+	// make an AND mask of the two channels in mask_3
+	mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
+End
+
+///	@param	m0		2D wave. matrix to work on
+///	@param	xPos	xPosition from ComDet (rounded) in 0-based
+///	@param	yPos	yPosition from ComDet (rounded) in 0-based
+///	@param	zPos	zPosition from ComDet (rounded) in 0-based
+Function MakeThatMask(m0,xPos,yPos,zPos)
+	Wave m0
+	Variable xPos,yPos,zPos
+	Variable i,j
+	
+	for(i = 0; i < 3; i += 1)
+		for(j = 0; j < 3; j += 1)
+			m0[(i-1)+xPos][(j-1)+yPos][zPos] = 1
+		endfor
+	endfor
+End
+
+// Running this depends on Make2ChMasks()
+Function MakeMaskedImagesAndAnalyse()
+	
+	WAVE ch1tiff, ch2tiff
+	String mList = "mask_1;mask_2;mask_3;"
+	String mName
+	
+	Variable i,j
+	
+	for(i = 0; i < 3; i += 1)
+		mName = StringFromList(i, mList)
+		Wave mask = $mName
+		MatrixOp/O out0 = ch1tiff * mask
+		MatrixOp/O out1 = ch2tiff * mask
+		// send for analysis
+		MakeColocMovie(out0,out1,0,0,1,0,mName)
+		// clean up as we go
+		Killwaves/Z out0,out1,mask
+	endfor
+End
 
 
 ///	@param	m0		First channel TIFF stack
@@ -152,106 +256,17 @@ Function Coloc(m0,m1,bg0,bg1,frameNum)
 	WaveTransform zapnans d1
 End
 
-// Load in the TIFFs for analysis
-Function LoadImagesForAnalysis()
-	
-	// ImageLoad/P=Desktop/T=tiff/O/S=0/C=-1 "ch2.tif"
-End
-
-// Load results from ComDet 0.3.5
-Function Load2ChComDetResults()
-	// Load Channel 1 output from ComDet
-	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
-	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
-	// Load Channel 2 output from ComDet
-	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
-	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
-	// Now make 2D waves
-	Variable nFrames
-	nFrames = dimsize(mat1,0)
-	Make/O/N=(nFrames, 3) ComDet_1
-	ComDet_1 = round(mat1[p][q])
-	nFrames = dimsize(mat2,0)
-	Make/O/N=(nFrames, 3) ComDet_2
-	ComDet_2 = round(mat2[p][q])
-	// Cleanup
-	KillWaves mat1,mat2
-End
-
-Function Make2ChMasks()
-	WAVE ComDet_1,ComDet_2
-	// hard code the tiffs
-	Wave m0 = 'ch1.tif'
-	Wave m1 = 'ch2.tif'
-	
-	if(dimsize(m0,2) != dimsize(m1,2))
-		Abort "Different number of frames in each channel"
-	endif
-	
-	if((dimsize(m0,0) != dimsize(m1,0)) || (dimsize(m0,1) != dimsize(m1,1)))
-		Abort "Different sizes of frames in each channel"
-	endif
-	
-	Make/O/B/U/N=(dimsize(m0,0),dimsize(m0,1),dimsize(m0,2)) mask_1=0, mask_2=0, mask_3
-	Variable xx,yy,zz
-	Variable nSpots
-	
+// Utility function to look at number of spots per frame from ComDet results
+// requires the KillWaves line from MakeMaskedImagesAndAnalyse() to be commented out
+Function CountTheSpots(m0,divVar)
+	Wave m0
+	Variable divVar // could be 1 or 9. 1 would give pixel value. 9 will give number of spots
+	Variable nFrames = dimsize(m0,2)
+	Make/O/N=(nFrames) nSpotWave
 	Variable i
 	
-	// ch1
-	nSpots = dimsize(ComDet_1,0)
-	for(i = 0; i < nSpots; i += 1)
-		xx = ComDet_1[i][1] - 1
-		yy = ComDet_1[i][2] - 1
-		zz = ComDet_1[i][0] - 1	// ImageJ is 1-based
-		MakeThatMask(mask_1,xx,yy,zz)
-	endfor
-	// ch2
-	nSpots = dimsize(ComDet_2,0)
-	for(i = 0; i < nSpots; i += 1)
-		xx = ComDet_2[i][1] - 1
-		yy = ComDet_2[i][2] - 1
-		zz = ComDet_2[i][0] - 1 // ImageJ is 1-based
-		MakeThatMask(mask_2,xx,yy,zz)
-	endfor
-	// make an AND mask of the two channels in mask_3
-	mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
-End
-
-///	@param	m0		2D wave. matrix to work on
-///	@param	xPos	xPosition from ComDet (rounded) in 0-based
-///	@param	yPos	yPosition from ComDet (rounded) in 0-based
-///	@param	zPos	zPosition from ComDet (rounded) in 0-based
-Function MakeThatMask(m0,xPos,yPos,zPos)
-	Wave m0
-	Variable xPos,yPos,zPos
-	Variable i,j
-	
-	for(i = 0; i < 3; i += 1)
-		for(j = 0; j < 3; j += 1)
-			m0[(i-1)+xPos][(j-1)+yPos][zPos] = 1
-		endfor
-	endfor
-End
-
-// Running this depends on Make2ChMasks()
-Function MakeMaskedImagesAndAnalyse()
-	// hard code the tiffs
-	Wave m0 = 'ch1.tif'
-	Wave m1 = 'ch2.tif'
-	String mList = "mask_1;mask_2;mask_3;"
-	String mName
-	
-	Variable i,j
-	
-	for(i = 0; i < 3; i += 1)
-		mName = StringFromList(i, mList)
-		Wave mask = $mName
-		MatrixOp/O out0 = m0 * mask
-		MatrixOp/O out1 = m1 * mask
-		// send for analysis
-		MakeColocMovie(out0,out1,0,0,1,0,mName)
-		// clean up as we go
-		Killwaves/Z m0,m1,mask
+	for(i = 0; i < nFrames; i += 1)
+		Duplicate/O/RMD=[][][i]/FREE m0,m1
+		nSpotWave[i] = sum(m1)
 	endfor
 End
