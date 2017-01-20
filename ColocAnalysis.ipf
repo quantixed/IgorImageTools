@@ -6,20 +6,45 @@ Menu "Macros"
 End
 
 Function ColocAnalysis()
+	// LoadImagesForAnalysis()
 	Load2ChComDetResults()
 	Make2ChMasks()
+	MakeMaskedImagesAndAnalyse()
 End
 
-Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
+//	NewPath/O/Q/M="Please find disk folder" OutputFolder
+//	if (V_flag!=0)
+//		DoAlert 0, "Disk folder error"
+//		Return -1
+//	endif
+//	PathInfo/S OutputFolder
+//	String OutputFolderName = S_path
+
+
+///	@param	m0		First channel TIFF stack
+///	@param	m1		Second channel TIFF stack
+///	@param	bg0		First channel background value
+///	@param	bg1		Second channel background value
+///	@param	normOpt		Normalisation option
+///	@param	tiffOpt		Output Tiffs? 0 = No, 1 = Yes
+///	@param	subFolderName		String containing the Name for subfolder
+// Limit is 9999 frames
+// Movie goes to OutputFolder/Subfolder
+// TIFFs go to OutputFolder/Subfolder/TIFFs
+Function MakeColocMovie(m0,m1,bg0,bg1,normOpt,tiffOpt,subFolderName)
 	Wave m0,m1
 	Variable bg0,bg1
-	Variable normOpt
+	Variable normOpt // 0 is no norm (graph scaled to Movie max), 1 is normalise to channel max for whole movie
+	Variable tiffOpt
+	String subFolderName
 	
-	NewPath/O/Q/M="Please find disk folder" OutputFolder
-	if (V_flag!=0)
-		DoAlert 0, "Disk folder error"
-		Return -1
-	endif
+	SVAR outputFolderName = root:gOutputFolder
+
+	// Define Paths for OutputSubFolder and OutputTIFFFolder
+	String folderStr = OutputFolderName + subFolderName + ":"
+	NewPath/C/O/Q/Z OutputSubFolder folderStr
+	folderStr += "TIFFs:"
+	NewPath/C/O/Q/Z OutputTIFFFolder folderStr
 	
 	WaveStats/Q m0
 	Variable m0Max = V_max
@@ -80,25 +105,33 @@ Function MakeColocMovie(m0,m1,bg0,bg1,normOpt)
 		DoUpdate
 		DoWindow/F Result
 		if(i == 0)
-			NewMovie/O/P=OutputFolder/CTYP="jpeg"/F=15 as "coloc"
+			NewMovie/O/P=OutputSubFolder/CTYP="jpeg"/F=15 as "coloc"
 		endif
 		AddMovieFrame
-		//save out pics for gif assembly in ImageJ
-		if( i >= 0 && i < 10)
-			iString = "000" + num2str(i)
-		elseif( i >=10 && i < 100)
-			iString = "00" + num2str(i)
-		elseif(i >= 100 && i < 1000)
-			iString = "0" + num2str(i)
-		elseif(i >= 1000 && i < 10000)
-			iString = num2str(i)
+		
+		// Optional: save out pics for gif assembly in ImageJ
+		if(tiffOpt == 1)
+			if( i >= 0 && i < 10)
+				iString = "000" + num2str(i)
+			elseif( i >=10 && i < 100)
+				iString = "00" + num2str(i)
+				elseif(i >= 100 && i < 1000)
+				iString = "0" + num2str(i)
+			elseif(i >= 1000 && i < 10000)
+				iString = num2str(i)
+			endif
+			tiffName = "coloc" + iString + ".tif"
+			SavePICT/P=OutputTIFFFolder/E=-7/B=288 as tiffName
 		endif
-		tiffName = "coloc" + iString + ".tif"
-		SavePICT/P=OutputFolder/E=-7/B=288 as tiffName
 	endfor
 	CloseMovie
 End
 
+///	@param	m0		First channel TIFF stack
+///	@param	m1		Second channel TIFF stack
+///	@param	bg0		First channel background value
+///	@param	bg1		Second channel background value
+///	@param	frameNum		This function works on one layer/frame at a time
 Function Coloc(m0,m1,bg0,bg1,frameNum)
 	Wave m0,m1
 	Variable bg0,bg1
@@ -117,6 +150,12 @@ Function Coloc(m0,m1,bg0,bg1,frameNum)
 	Redimension/N=(nPx) d1
 	WaveTransform zapnans d0
 	WaveTransform zapnans d1
+End
+
+// Load in the TIFFs for analysis
+Function LoadImagesForAnalysis()
+	
+	// ImageLoad/P=Desktop/T=tiff/O/S=0/C=-1 "ch2.tif"
 End
 
 // Load results from ComDet 0.3.5
@@ -153,7 +192,7 @@ Function Make2ChMasks()
 		Abort "Different sizes of frames in each channel"
 	endif
 	
-	Make/O/N=(dimsize(m0,0),dimsize(m0,1),dimsize(m0,2)) mask_1=0,mask_2=0
+	Make/O/B/U/N=(dimsize(m0,0),dimsize(m0,1),dimsize(m0,2)) mask_1=0, mask_2=0, mask_3
 	Variable xx,yy,zz
 	Variable nSpots
 	
@@ -175,8 +214,14 @@ Function Make2ChMasks()
 		zz = ComDet_2[i][0] - 1 // ImageJ is 1-based
 		MakeThatMask(mask_2,xx,yy,zz)
 	endfor
+	// make an AND mask of the two channels in mask_3
+	mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
 End
 
+///	@param	m0		2D wave. matrix to work on
+///	@param	xPos	xPosition from ComDet (rounded) in 0-based
+///	@param	yPos	yPosition from ComDet (rounded) in 0-based
+///	@param	zPos	zPosition from ComDet (rounded) in 0-based
 Function MakeThatMask(m0,xPos,yPos,zPos)
 	Wave m0
 	Variable xPos,yPos,zPos
@@ -186,5 +231,27 @@ Function MakeThatMask(m0,xPos,yPos,zPos)
 		for(j = 0; j < 3; j += 1)
 			m0[(i-1)+xPos][(j-1)+yPos][zPos] = 1
 		endfor
+	endfor
+End
+
+// Running this depends on Make2ChMasks()
+Function MakeMaskedImagesAndAnalyse()
+	// hard code the tiffs
+	Wave m0 = 'ch1.tif'
+	Wave m1 = 'ch2.tif'
+	String mList = "mask_1;mask_2;mask_3;"
+	String mName
+	
+	Variable i,j
+	
+	for(i = 0; i < 3; i += 1)
+		mName = StringFromList(i, mList)
+		Wave mask = $mName
+		MatrixOp/O out0 = m0 * mask
+		MatrixOp/O out1 = m1 * mask
+		// send for analysis
+		MakeColocMovie(out0,out1,0,0,1,0,mName)
+		// clean up as we go
+		Killwaves/Z m0,m1,mask
 	endfor
 End
