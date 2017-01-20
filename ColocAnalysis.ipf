@@ -2,39 +2,96 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 #include <All IP Procedures>
 Menu "Macros"
-	"ColocAnalysis...",  ColocAnalysis()
+	"ColocAnalysis...",  myIO_Panel()
 End
 
-Function ColocAnalysis()
-	LoadImagesForAnalysis()
-	Make2ChMasks()
-	MakeMaskedImagesAndAnalyse()
+Function myIO_Panel()
+	// make global text wave to store paths and output folder
+	Make/T/O/N=5 PathWave
+	DoWindow/K FilePicker
+	NewPanel/N=FilePicker/W=(81,73,774,298)
+	Button SelectFile1,pos={12.00,10.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch1 TIFF"
+	Button SelectFile2,pos={12.00,41.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch2 TIFF"
+	Button SelectFile3,pos={12.00,72.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch1 ComDet"
+	Button SelectFile4,pos={12.00,103.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch2 ComDet"
+	Button Output,pos={12.00,134.00},size={140.00,20.00},proc=ButtonProc,title="Select Output Folder"
+	SetVariable File1,pos={168.00,13.00},size={500.00,14.00},value= PathWave[0]
+	SetVariable File2,pos={168.00,44.00},size={500.00,14.00},value= PathWave[1]
+	SetVariable File3,pos={168.00,75.00},size={500.00,14.00},value= PathWave[2]
+	SetVariable File4,pos={168.00,106.00},size={500.00,14.00},value= PathWave[3]
+	SetVariable File5,pos={168.00,137.00},size={500.00,14.00},value= PathWave[4]
+	Button DoIt,pos={296.00,181.00},size={100.00,20.00},proc=ButtonProc,title="Do It"
 End
-
-Function LoadImagesForAnalysis()
-	// Load channel 1 tiff
-	ImageLoad/T=tiff/N=ch1tiff/O/S=0/C=-1 ""
-	// Load channel 2 tiff
-	ImageLoad/T=tiff/N=ch2tiff/O/S=0/C=-1 ""
-	// Now load the ComDet data
-	Load2ChComDetResults()
-	// Now specify the OutputFolder
-	NewPath/O/Q/M="Please find disk folder" OutputFolder
-	if (V_flag!=0)
-		DoAlert 0, "Disk folder error"
-		Return -1
-	endif
-	PathInfo/S OutputFolder
-	String/G gOutputFolder = S_path
+ 
+// define buttons
+Function ButtonProc(ctrlName) : ButtonControl
+	String ctrlName
+ 
+		Wave/T PathWave
+		Variable refnum
+ 
+		strswitch(ctrlName)
+ 
+			case "SelectFile1"	:
+				// get File Paths
+				Open/D/R/F="*.tif"/M="Select Ch1 Image" refNum
+				if (strlen(S_FileName) == 0) // user cancelled or some error occured
+					return -1
+				endif
+				PathWave[0] = S_fileName
+				break
+ 
+			case "SelectFile2"	:
+				// get File Paths
+				Open/D/R/F="*.tif"/M="Select Ch2 Image" refNum
+				if (strlen(S_FileName) == 0) 
+					return -1
+				endif
+				PathWave[1] = S_fileName
+				break
+			
+			case "SelectFile3"	:
+				// get File Paths
+				Open/D/R/F="*.xls"/M="Select Ch1 ComDet Output" refNum
+				if (strlen(S_FileName) == 0) 
+					return -1
+				endif
+				PathWave[2] = S_fileName
+				break
+			
+			case "SelectFile4"	:
+				// get File Paths
+				Open/D/R/F="*.xls"/M="Select Ch2 ComDetOutput" refNum
+				if (strlen(S_FileName) == 0) 
+					return -1
+				endif
+				PathWave[3] = S_fileName
+				break
+ 
+			case "Output"	:
+				// set outputfolder
+				NewPath/Q/O OutputPath
+				PathInfo OutputPath
+				PathWave[4] = S_Path
+				break
+ 
+			case "DoIt" :
+				// run your loadwave commands and other functions
+				LoadAllFiles(PathWave)
+				break
+ 
+		EndSwitch
 End
-
-// Load results from ComDet 0.3.5
-Function Load2ChComDetResults()
-	// Load Channel 1 output from ComDet
-	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
+ 
+function LoadAllFiles(path)
+	Wave/T path
+	// Load channel 1 and 2 tiff
+	ImageLoad/T=tiff/N=ch1tiff/O/S=0/C=-1 path[0]
+	ImageLoad/T=tiff/N=ch2tiff/O/S=0/C=-1 path[1]
+	// Load ComDet Outputs
+	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[2]
 	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
-	// Load Channel 2 output from ComDet
-	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} ""
+	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[3]
 	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
 	// Now make 2D waves
 	Variable nFrames
@@ -46,7 +103,8 @@ Function Load2ChComDetResults()
 	ComDet_2 = round(mat2[p][q])
 	// Cleanup
 	KillWaves mat1,mat2
-End
+	Make2ChMasks()
+end
 
 Function Make2ChMasks()
 
@@ -85,6 +143,8 @@ Function Make2ChMasks()
 	endfor
 	// make an AND mask of the two channels in mask_3
 	mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
+	// now call next function
+	MakeMaskedImagesAndAnalyse()
 End
 
 ///	@param	m0		2D wave. matrix to work on
@@ -142,7 +202,8 @@ Function MakeColocMovie(m0,m1,bg0,bg1,normOpt,tiffOpt,subFolderName)
 	Variable tiffOpt
 	String subFolderName
 	
-	SVAR outputFolderName = root:gOutputFolder
+	Wave/T PathWave
+	String outputFolderName = PathWave[4]
 
 	// Define Paths for OutputSubFolder and OutputTIFFFolder
 	String folderStr = OutputFolderName + subFolderName + ":"
