@@ -20,6 +20,9 @@ Function myIO_Panel()
 	SetVariable File3,pos={168.00,75.00},size={500.00,14.00},value= PathWave[2]
 	SetVariable File4,pos={168.00,106.00},size={500.00,14.00},value= PathWave[3]
 	SetVariable File5,pos={168.00,137.00},size={500.00,14.00},value= PathWave[4]
+	
+	
+	
 	Button DoIt,pos={296.00,181.00},size={100.00,20.00},proc=ButtonProc,title="Do It"
 End
  
@@ -88,22 +91,28 @@ function LoadAllFiles(path)
 	// Load channel 1 and 2 tiff
 	ImageLoad/T=tiff/N=ch1tiff/O/S=0/C=-1 path[0]
 	ImageLoad/T=tiff/N=ch2tiff/O/S=0/C=-1 path[1]
-	// Load ComDet Outputs
-	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[2]
-	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
-	LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[3]
-	Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
-	// Now make 2D waves
-	Variable nFrames
-	nFrames = dimsize(mat1,0)
-	Make/O/N=(nFrames, 3) ComDet_1
-	ComDet_1 = round(mat1[p][q])
-	nFrames = dimsize(mat2,0)
-	Make/O/N=(nFrames, 3) ComDet_2
-	ComDet_2 = round(mat2[p][q])
-	// Cleanup
-	KillWaves mat1,mat2
-	Make2ChMasks()
+	// Without ComDet Files, go straight to analysis
+	if(strlen(path[2]) != 0 || strlen(path[3]) != 0)
+		// Load ComDet Outputs
+		LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[2]
+		Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
+		LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[3]
+		Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
+		// Now make 2D waves
+		Variable nFrames
+		nFrames = dimsize(mat1,0)
+		Make/O/N=(nFrames, 3) ComDet_1
+		ComDet_1 = round(mat1[p][q])
+		nFrames = dimsize(mat2,0)
+		Make/O/N=(nFrames, 3) ComDet_2
+		ComDet_2 = round(mat2[p][q])
+		// Cleanup
+		KillWaves mat1,mat2
+		Make2ChMasks()
+	else
+		MakeColocMovie(ch1tiff,ch2tiff,0,0,1,0,"noMask")
+		// MakeColocMovie(m0,m1,bg0,bg1,normOpt,tiffOpt,subFolderName)
+	endif
 end
 
 Function Make2ChMasks()
