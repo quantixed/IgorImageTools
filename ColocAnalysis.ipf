@@ -8,6 +8,8 @@ End
 Function myIO_Panel()
 	// make global text wave to store paths and output folder
 	Make/T/O/N=5 PathWave
+	// make global numeric wave for other variables
+	Make/O/N=4 gVarWave={0,0,1,0}
 	DoWindow/K FilePicker
 	NewPanel/N=FilePicker/W=(81,73,774,298)
 	Button SelectFile1,pos={12.00,10.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch1 TIFF"
@@ -21,9 +23,13 @@ Function myIO_Panel()
 	SetVariable File4,pos={168.00,106.00},size={500.00,14.00},value= PathWave[3]
 	SetVariable File5,pos={168.00,137.00},size={500.00,14.00},value= PathWave[4]
 	
+	CheckBox normCheck,pos={12,161},size={69,14},title="Normalise channels",value= gVarWave[2]
+	CheckBox tiffCheck,pos={12,181},size={69,14},title="Make Coloc Tiffs",value= gVarWave[3]
 	
+	SetVariable bg0SetVar,pos={168,161},size={166,15},title="Background Ch1:",format="%g",value= gVarWave[0]
+	SetVariable bg1SetVar,pos={168,181},size={166,15},title="Background Ch2:",format="%g",value= gVarWave[1]
 	
-	Button DoIt,pos={296.00,181.00},size={100.00,20.00},proc=ButtonProc,title="Do It"
+	Button DoIt,pos={564.00,181.00},size={100.00,20.00},proc=ButtonProc,title="Do It"
 End
  
 // define buttons
@@ -31,6 +37,7 @@ Function ButtonProc(ctrlName) : ButtonControl
 	String ctrlName
  
 		Wave/T PathWave
+		Wave gVarWave
 		Variable refnum
  
 		strswitch(ctrlName)
@@ -80,6 +87,10 @@ Function ButtonProc(ctrlName) : ButtonControl
  
 			case "DoIt" :
 				// run your loadwave commands and other functions
+				ControlInfo/W=FilePicker normCheck
+				gVarWave[2] = V_Value
+				ControlInfo/W=FilePicker tiffCheck
+				gVarWave[3] = V_Value
 				LoadAllFiles(PathWave)
 				break
  
@@ -110,8 +121,8 @@ function LoadAllFiles(path)
 		KillWaves mat1,mat2
 		Make2ChMasks()
 	else
-		MakeColocMovie(ch1tiff,ch2tiff,0,0,1,0,"noMask")
-		// MakeColocMovie(m0,m1,bg0,bg1,normOpt,tiffOpt,subFolderName)
+		WAVE/Z ch1tiff,ch2tiff
+		MakeColocMovie(ch1tiff,ch2tiff,"noMask")
 	endif
 end
 
@@ -187,7 +198,7 @@ Function MakeMaskedImagesAndAnalyse()
 		MatrixOp/O out0 = ch1tiff * mask
 		MatrixOp/O out1 = ch2tiff * mask
 		// send for analysis
-		MakeColocMovie(out0,out1,0,0,1,0,mName)
+		MakeColocMovie(out0,out1,mName)
 		// clean up as we go
 		Killwaves/Z out0,out1,mask
 	endfor
@@ -196,20 +207,20 @@ End
 
 ///	@param	m0		First channel TIFF stack
 ///	@param	m1		Second channel TIFF stack
-///	@param	bg0		First channel background value
-///	@param	bg1		Second channel background value
-///	@param	normOpt		Normalisation option
-///	@param	tiffOpt		Output Tiffs? 0 = No, 1 = Yes
 ///	@param	subFolderName		String containing the Name for subfolder
 // Limit is 9999 frames
 // Movie goes to OutputFolder/Subfolder
 // TIFFs go to OutputFolder/Subfolder/TIFFs
-Function MakeColocMovie(m0,m1,bg0,bg1,normOpt,tiffOpt,subFolderName)
+Function MakeColocMovie(m0,m1,subFolderName)
 	Wave m0,m1
-	Variable bg0,bg1
-	Variable normOpt // 0 is no norm (graph scaled to Movie max), 1 is normalise to channel max for whole movie
-	Variable tiffOpt
 	String subFolderName
+	
+	Wave gVarWave
+	Variable bg0 = gVarWave[0]
+	Variable bg1 = gVarWave[1]
+	// 0 is no norm (graph scaled to Movie max), 1 is normalise to channel max for whole movie
+	Variable normOpt = gVarWave[2]
+	Variable tiffOpt = gVarWave[3]
 	
 	Wave/T PathWave
 	String outputFolderName = PathWave[4]
