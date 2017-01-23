@@ -229,9 +229,9 @@ Function MakeMaskedImagesAndAnalyse(nCh)
 		MatrixOp/O out1 = ch2tiff * mask
 		// send for analysis
 		MakeColocMovie(out0,out1,mName)
-		// clean up as we go
-		Killwaves/Z out0,out1,mask
 	endfor
+	KillWaves out0,out1
+	SpotPlotOverTime(mList,9)	// divide Mask_3 by 9
 End
 
 
@@ -293,8 +293,6 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	elseif(normOpt == 1)
 		SetAxis/W=Result left 0,1
 		SetAxis/W=Result bottom 0,1
-	else
-		Abort "Use 0 or 1 for normalisation option"
 	endif
 	ModifyGraph/W=Result gbRGB=(62258,62258,62258) // 5% grey
 	ModifyGraph/W=Result margin=5
@@ -371,16 +369,116 @@ Function Coloc(m0,m1,bg0,bg1,frameNum)
 End
 
 // Utility function to look at number of spots per frame from ComDet results
-// requires the KillWaves line from MakeMaskedImagesAndAnalyse() to be commented out
-Function CountTheSpots(m0,divVar)
-	Wave m0
+/// @param	mList	stringlist of mask_n waves
+/// @param	divVar	use this variable to divide spots, i.e. 1 spot is divVar pixels big
+Function SpotPlotOverTime(mList,divVar)
+	String mList
 	Variable divVar // could be 1 or 9. 1 would give pixel value. 9 will give number of spots
+	
+	if(strlen(mList) == 0)
+		return 0
+	endif
+	
+	Wave gVarWave
+	Variable tiffOpt = gVarWave[3]
+	
+	Wave/T PathWave
+	String outputFolderName = PathWave[4]
+
+	// Define Paths for OutputSubFolder and OutputTIFFFolder
+	String folderStr = OutputFolderName + "spotPlot:"
+	NewPath/C/O/Q/Z OutputSubFolder folderStr
+	if(tiffOpt == 1)
+		folderStr += "TIFFs:"
+		NewPath/C/O/Q/Z OutputTIFFFolder folderStr
+	endif
+	
+	Variable nMask = ItemsInList(mList)
+	String mName = StringFromList(0,mList)
+	Wave m0 = $mName
 	Variable nFrames = dimsize(m0,2)
-	Make/O/N=(nFrames) nSpotWave
-	Variable i
+	Variable maxValL=0,maxValR=0
+	String wName
+	
+	Variable i,j
+	
+	for(i = 0; i < nMask; i += 1)
+		mName = StringFromList(i,mList)
+		Wave m0 = $mName
+		for(j = 0; j < nFrames; j += 1)
+			if(j == 0)
+				wName = ReplaceString("mask",mName,"nSpot")
+				Make/O/N=(nFrames) $wName
+				Wave w0 = $wName
+			endif
+			Duplicate/O/RMD=[][][j]/FREE m0,m1
+			w0[j] = sum(m1)
+		endfor
+		w0 /= divVar
+		if(wavemax(w0) > maxValL)
+			maxValL = wavemax(w0)
+		endif
+	endfor
+	// declare all possible waves
+	WAVE/Z nSpot_1,nSpot_2,nSpot_3
+	// find max value for right axis
+	if(nMask > 1)
+		maxValR = wavemax(nSpot_3)
+	endif
+	
+	// Set-up window for display make it final first
+	DoWindow/K spotPlot
+	Display/N=spotPlot
+	if(WaveExists(nSpot_1) == 1)
+		AppendToGraph/W=spotPlot nSpot_1
+		ModifyGraph rgb(nSpot_1)=(65535,0,0,32768)
+	endif
+	if(WaveExists(nSpot_2) == 1)
+		AppendToGraph/W=spotPlot nSpot_2
+		ModifyGraph rgb(nSpot_2)=(0,65535,0,32768)
+	endif
+	if(WaveExists(nSpot_3) == 1)
+		AppendToGraph/W=spotPlot/R nSpot_3
+		ModifyGraph rgb(nSpot_3)=(65535,65535,0,32768)
+	endif
+	ModifyGraph/W=spotPlot mode=0
+	// ModifyGraph/W=spotPlot width={Plan,1,bottom,left}
+	SetAxis/W=spotPlot left 0,maxValL
+	if(nMask > 1)
+		SetAxis/W=spotPlot right 0,maxValR
+	endif
+	
+	String wList = ReplaceString("mask",mList,"nSpot")
+	String iString, tiffName
 	
 	for(i = 0; i < nFrames; i += 1)
-		Duplicate/O/RMD=[][][i]/FREE m0,m1
-		nSpotWave[i] = sum(m1)
+		for(j = 0; j < nMask; j +=1)
+			wName = StringFromList(j,wList)
+			ReplaceWave/W=spotPlot trace=$wName, $wName[0,i]
+		endfor
+		TextBox/W=spotPlot/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00 num2str(i)
+		// take snap
+		DoUpdate
+		DoWindow/F spotPlot
+		if(i == 0)
+			NewMovie/O/P=OutputSubFolder/CTYP="jpeg"/F=15 as "coloc"
+		endif
+		AddMovieFrame
+		
+		// Optional: save out pics for gif assembly in ImageJ
+		if(tiffOpt == 1)
+			if( i >= 0 && i < 10)
+				iString = "000" + num2str(i)
+			elseif( i >=10 && i < 100)
+				iString = "00" + num2str(i)
+				elseif(i >= 100 && i < 1000)
+				iString = "0" + num2str(i)
+			elseif(i >= 1000 && i < 10000)
+				iString = num2str(i)
+			endif
+			tiffName = "coloc" + iString + ".tif"
+			SavePICT/P=OutputTIFFFolder/E=-7/B=288 as tiffName
+		endif
 	endfor
+	CloseMovie
 End
