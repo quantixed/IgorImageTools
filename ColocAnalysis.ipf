@@ -97,74 +97,91 @@ Function ButtonProc(ctrlName) : ButtonControl
 		EndSwitch
 End
  
-function LoadAllFiles(path)
+Function LoadAllFiles(path)
 	Wave/T path
+	
 	// Load channel 1 and 2 tiff
 	ImageLoad/T=tiff/N=ch1tiff/O/S=0/C=-1 path[0]
 	ImageLoad/T=tiff/N=ch2tiff/O/S=0/C=-1 path[1]
+	Variable nFrames,nCh=0
+	
 	// Without ComDet Files, go straight to analysis
 	if(strlen(path[2]) != 0 || strlen(path[3]) != 0)
 		// Load ComDet Outputs
-		LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[2]
-		Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
-		LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[3]
-		Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
-		// Now make 2D waves
-		Variable nFrames
-		nFrames = dimsize(mat1,0)
-		Make/O/N=(nFrames, 3) ComDet_1
-		ComDet_1 = round(mat1[p][q])
-		nFrames = dimsize(mat2,0)
-		Make/O/N=(nFrames, 3) ComDet_2
-		ComDet_2 = round(mat2[p][q])
-		// Cleanup
-		KillWaves mat1,mat2
-		Make2ChMasks()
+		if(strlen(path[2]) != 0)
+			LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[2]
+			Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat1
+			nFrames = dimsize(mat1,0)
+			Make/O/N=(nFrames, 3) ComDet_1
+			ComDet_1 = round(mat1[p][q])
+			KillWaves mat1
+			nCh +=1 // bit 0
+		endif
+		if(strlen(path[3]) != 0)
+			LoadWave/Q/A/J/D/W/O/L={0,1,0,1,3} path[3]
+			Concatenate/O/KILL "Abs_Frame;X__px_;Y__px_;", mat2
+			nFrames = dimsize(mat2,0)
+			Make/O/N=(nFrames, 3) ComDet_2
+			ComDet_2 = round(mat2[p][q])
+			KillWaves mat2
+			nCh +=2 // bit 1
+		endif
+		Make2ChMasks(nCh)
 	else
 		WAVE/Z ch1tiff,ch2tiff
 		MakeColocMovie(ch1tiff,ch2tiff,"noMask")
 	endif
 end
 
-Function Make2ChMasks()
-
-	WAVE ComDet_1,ComDet_2
-	WAVE ch1tiff, ch2tiff
+/// @param	nCh	bit parameter. Tells function which ComDet files were loaded
+Function Make2ChMasks(nCh)
+	Variable nCh
 	
+	// Check images for compatability
+	WAVE/Z ch1tiff, ch2tiff
 	if(dimsize(ch1tiff,2) != dimsize(ch2tiff,2))
 		Abort "Different number of frames in each channel"
 	endif
-	
 	if((dimsize(ch1tiff,0) != dimsize(ch2tiff,0)) || (dimsize(ch1tiff,1) != dimsize(ch2tiff,1)))
 		Abort "Different sizes of frames in each channel"
 	endif
 	
-	Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_1=0, mask_2=0, mask_3
+	WAVE/Z ComDet_1,ComDet_2
+	
 	Variable xx,yy,zz
 	Variable nSpots
 	
 	Variable i
 	
-	// ch1
-	nSpots = dimsize(ComDet_1,0)
-	for(i = 0; i < nSpots; i += 1)
-		xx = ComDet_1[i][1] - 1
-		yy = ComDet_1[i][2] - 1
-		zz = ComDet_1[i][0] - 1	// ImageJ is 1-based
-		MakeThatMask(mask_1,xx,yy,zz)
-	endfor
-	// ch2
-	nSpots = dimsize(ComDet_2,0)
-	for(i = 0; i < nSpots; i += 1)
-		xx = ComDet_2[i][1] - 1
-		yy = ComDet_2[i][2] - 1
-		zz = ComDet_2[i][0] - 1 // ImageJ is 1-based
-		MakeThatMask(mask_2,xx,yy,zz)
-	endfor
-	// make an AND mask of the two channels in mask_3
-	mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
+	if ((nCh & 2^0) != 0) // bit 0 is set
+		// ch1
+		nSpots = dimsize(ComDet_1,0)
+		Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_1=0
+		for(i = 0; i < nSpots; i += 1)
+			xx = ComDet_1[i][1] - 1
+			yy = ComDet_1[i][2] - 1
+			zz = ComDet_1[i][0] - 1	// ImageJ is 1-based
+			MakeThatMask(mask_1,xx,yy,zz)
+		endfor
+	endif
+	if ((nCh & 2^1) != 0) // bit 1 is set
+		// ch2
+		nSpots = dimsize(ComDet_2,0)
+		Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_2=0
+		for(i = 0; i < nSpots; i += 1)
+			xx = ComDet_2[i][1] - 1
+			yy = ComDet_2[i][2] - 1
+			zz = ComDet_2[i][0] - 1 // ImageJ is 1-based
+			MakeThatMask(mask_2,xx,yy,zz)
+		endfor
+	endif
+	if ((nCh & 2^0) != 0 && (nCh & 2^1) !=0) // bit 0 AND bit 1 are set
+		Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_3
+		// make an AND mask of the two channels in mask_3
+		mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
+	endif
 	// now call next function
-	MakeMaskedImagesAndAnalyse()
+	MakeMaskedImagesAndAnalyse(nCh)
 End
 
 ///	@param	m0		2D wave. matrix to work on
@@ -184,15 +201,28 @@ Function MakeThatMask(m0,xPos,yPos,zPos)
 End
 
 // Running this depends on Make2ChMasks()
-Function MakeMaskedImagesAndAnalyse()
+/// @param	nCh	bit parameter. Tells function which ComDet files were loaded
+Function MakeMaskedImagesAndAnalyse(nCh)
+	Variable nCh
 	
 	WAVE ch1tiff, ch2tiff
-	String mList = "mask_1;mask_2;mask_3;"
+	
+	String mList = ""
+	if ((nCh & 2^0) != 0) // bit 0 is set
+		mList += "mask_1;"
+	endif
+	if ((nCh & 2^1) != 0) // bit 1 is set
+		mList += "mask_2;"
+	endif
+	if ((nCh & 2^0) != 0 && (nCh & 2^1) !=0) // bit 0 AND bit 1 are set
+		mList += "mask_3;"
+	endif
+	
 	String mName
 	
 	Variable i,j
 	
-	for(i = 0; i < 3; i += 1)
+	for(i = 0; i < ItemsInList(mList); i += 1)
 		mName = StringFromList(i, mList)
 		Wave mask = $mName
 		MatrixOp/O out0 = ch1tiff * mask
@@ -228,8 +258,10 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	// Define Paths for OutputSubFolder and OutputTIFFFolder
 	String folderStr = OutputFolderName + subFolderName + ":"
 	NewPath/C/O/Q/Z OutputSubFolder folderStr
-	folderStr += "TIFFs:"
-	NewPath/C/O/Q/Z OutputTIFFFolder folderStr
+	if(tiffOpt == 1)
+		folderStr += "TIFFs:"
+		NewPath/C/O/Q/Z OutputTIFFFolder folderStr
+	endif
 	
 	WaveStats/Q m0
 	Variable m0Max = V_max
@@ -276,7 +308,6 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	
 	String iString, tiffName
 	
-	
 	for(i = 0; i < m0Frames; i += 1)
 		Coloc(m0,m1,bg0,bg1,i)
 		if(normOpt ==1)
@@ -310,6 +341,8 @@ Function MakeColocMovie(m0,m1,subFolderName)
 		endif
 	endfor
 	CloseMovie
+	DoWindow/K Result
+	KillWaves d0,d1
 End
 
 ///	@param	m0		First channel TIFF stack
