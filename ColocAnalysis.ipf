@@ -443,9 +443,10 @@ Function SpotPlotOverTime(mList,divVar)
 	endif
 	ModifyGraph/W=spotPlot mode=0
 	// ModifyGraph/W=spotPlot width={Plan,1,bottom,left}
-	SetAxis/W=spotPlot left 0,maxValL
+	SetAxis/W=spotPlot bottom 0,nFrames-1
+	SetAxis/W=spotPlot left 0,NearestTen(maxValL)
 	if(nMask > 1)
-		SetAxis/W=spotPlot right 0,maxValR
+		SetAxis/W=spotPlot right 0,NearestTen(maxValR)
 	endif
 	
 	String wList = ReplaceString("mask",mList,"nSpot")
@@ -481,4 +482,15 @@ Function SpotPlotOverTime(mList,divVar)
 		endif
 	endfor
 	CloseMovie
+End
+
+// for axis scaling
+///	@param	value				this is the input value that requires rounding up
+Function NearestTen(value)
+	Variable value
+	
+	value /=10
+	Variable newVal = ceil(value)
+	newVal /=10
+	return newVal
 End
