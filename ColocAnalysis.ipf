@@ -231,7 +231,8 @@ Function MakeMaskedImagesAndAnalyse(nCh)
 		MakeColocMovie(out0,out1,mName)
 	endfor
 	KillWaves out0,out1
-	SpotPlotOverTime(mList,9)	// divide Mask_3 by 9
+	SpotPlotOverTime(mList,9)	// divide pixels by 9 to get plot in units of numbers of spots
+	MakeFinalImage()
 End
 
 
@@ -283,7 +284,7 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	// Set-up window for display
 	DoWindow/K Result
 	Make/O/N=1 d0,d1
-	Display/N=Result d1 vs d0
+	Display/N=Result/W=(0,0,208,208) d1 vs d0
 	ModifyGraph/W=Result mode=2
 	ModifyGraph/W=Result rgb(d1)=(0,0,65535)
 	ModifyGraph/W=Result width={Plan,1,bottom,left}
@@ -335,7 +336,7 @@ Function MakeColocMovie(m0,m1,subFolderName)
 				iString = num2str(i)
 			endif
 			tiffName = "coloc" + iString + ".tif"
-			SavePICT/P=OutputTIFFFolder/E=-7/B=288 as tiffName
+			SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
 		endif
 	endfor
 	CloseMovie
@@ -428,25 +429,25 @@ Function SpotPlotOverTime(mList,divVar)
 	
 	// Set-up window for display make it final first
 	DoWindow/K spotPlot
-	Display/N=spotPlot
+	Display/N=spotPlot/W=(0,0,208,208)
 	if(WaveExists(nSpot_1) == 1)
 		AppendToGraph/W=spotPlot nSpot_1
-		ModifyGraph rgb(nSpot_1)=(65535,0,0,32768)
+		ModifyGraph rgb(nSpot_1)=(227*257,28*257,28*257,32768)
 	endif
 	if(WaveExists(nSpot_2) == 1)
 		AppendToGraph/W=spotPlot nSpot_2
-		ModifyGraph rgb(nSpot_2)=(0,65535,0,32768)
+		ModifyGraph rgb(nSpot_2)=(21*257,234*257,21*257,32768)
 	endif
 	if(WaveExists(nSpot_3) == 1)
 		AppendToGraph/W=spotPlot/R nSpot_3
-		ModifyGraph rgb(nSpot_3)=(65535,65535,0,32768)
+		ModifyGraph rgb(nSpot_3)=(251*257,190*257,39*257,32768)
 	endif
 	ModifyGraph/W=spotPlot mode=0
 	// ModifyGraph/W=spotPlot width={Plan,1,bottom,left}
 	SetAxis/W=spotPlot bottom 0,nFrames-1
-	SetAxis/W=spotPlot left 0,NearestTen(maxValL)
+	SetAxis/W=spotPlot left 0,NearestTon(maxValL)
 	if(nMask > 1)
-		SetAxis/W=spotPlot right 0,NearestTen(maxValR)
+		SetAxis/W=spotPlot right 0,NearestTon(maxValR)
 	endif
 	
 	String wList = ReplaceString("mask",mList,"nSpot")
@@ -457,7 +458,7 @@ Function SpotPlotOverTime(mList,divVar)
 			wName = StringFromList(j,wList)
 			ReplaceWave/W=spotPlot trace=$wName, $wName[0,i]
 		endfor
-		TextBox/W=spotPlot/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00 num2str(i)
+		// TextBox/W=spotPlot/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00 num2str(i)
 		// take snap
 		DoUpdate
 		DoWindow/F spotPlot
@@ -478,7 +479,7 @@ Function SpotPlotOverTime(mList,divVar)
 				iString = num2str(i)
 			endif
 			tiffName = "coloc" + iString + ".tif"
-			SavePICT/P=OutputTIFFFolder/E=-7/B=288 as tiffName
+			SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
 		endif
 	endfor
 	CloseMovie
@@ -486,11 +487,56 @@ End
 
 // for axis scaling
 ///	@param	value				this is the input value that requires rounding up
-Function NearestTen(value)
+Static Function NearestTon(value)
 	Variable value
 	
-	value /=10
+	value /=100
 	Variable newVal = ceil(value)
-	newVal /=10
+	newVal *=100
 	return newVal
+End
+
+Function MakeFinalImage()
+	WAVE gVarWave
+	
+	//make 2 ch overlay tiff
+	WAVE ch1tiff,ch2tiff
+	MatrixOp/O ch1G = uint8(255 * (ch1tiff/maxVal(ch1tiff)))
+	MatrixOp/O ch2R = uint8(255 * (ch2tiff/maxVal(ch2tiff)))
+	Variable xx = dimsize(ch1tiff,0)
+	Variable yy = dimsize(ch1tiff,1)
+	Variable zz = dimsize(ch1tiff,2)
+	Make/O/N=(xx,yy,zz)/B/U ch3B=0
+	// make green panel grayscale
+	Concatenate/O {ch1G,ch1G,ch1G}, tempMat
+	ImageTransform/TM4D=1284 transpose4D tempMat
+	WAVE M_4DTranspose
+	Duplicate/O M_4DTranspose, panel1
+	KillWaves tempMat
+	// make green panel grayscale
+	Concatenate/O {ch2R,ch2R,ch2R}, tempMat
+	ImageTransform/TM4D=1284 transpose4D tempMat
+	Duplicate/O M_4DTranspose, panel2
+	KillWaves tempMat
+	// make merge
+	Concatenate/O {ch1G,ch2R,ch3B}, tempMat
+	ImageTransform/TM4D=1284 transpose4D tempMat
+	Duplicate/O M_4DTranspose, panel3
+	// make montage
+	WAVE panel1,panel2,panel3
+	Concatenate/O/KILL/NP=0 {panel1,panel2,panel3}, montageTiff
+	// clean up
+	KillWaves/Z tempMat,M_4DTranspose
+	
+	// display image with slider
+	NewImage/N=montage montageTiff
+	DoWindow/F montage
+	WMAppend3DImageSlider()
+	
+	if(gVarWave[3] == 1)
+		// make the plot images
+	endif
+	
+	// save image as tiff stack
+
 End
