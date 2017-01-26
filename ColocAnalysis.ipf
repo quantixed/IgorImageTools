@@ -1,6 +1,10 @@
 #pragma TextEncoding = "MacRoman"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
-#include <All IP Procedures>
+#include <ImageSlider>
+#include <3DWaveDisplay>
+#include <loadFolderImages>
+#include <MovieFromStack>
+
 Menu "Macros"
 	"ColocAnalysis...",  myIO_Panel()
 End
@@ -232,7 +236,7 @@ Function MakeMaskedImagesAndAnalyse(nCh)
 	endfor
 	KillWaves out0,out1
 	SpotPlotOverTime(mList,9)	// divide pixels by 9 to get plot in units of numbers of spots
-	MakeFinalImage()
+	MakeFinalImage(nCh)
 End
 
 
@@ -443,11 +447,14 @@ Function SpotPlotOverTime(mList,divVar)
 		ModifyGraph rgb(nSpot_3)=(251*257,190*257,39*257,32768)
 	endif
 	ModifyGraph/W=spotPlot mode=0
+	ModifyGraph/W=spotPlot lsize=2
+	Label/W=spotPlot left "Number of spots (\\K(58339,7196,7196)ch1 \\K(5397,60138,5397)ch2\\K(0,0,0))"
 	// ModifyGraph/W=spotPlot width={Plan,1,bottom,left}
 	SetAxis/W=spotPlot bottom 0,nFrames-1
 	SetAxis/W=spotPlot left 0,NearestTon(maxValL)
 	if(nMask > 1)
 		SetAxis/W=spotPlot right 0,NearestTon(maxValR)
+		Label/W=spotPlot right "Number of spots (\\K(64507,48830,10023)ch1 | ch2\\K(0,0,0))"
 	endif
 	
 	String wList = ReplaceString("mask",mList,"nSpot")
@@ -458,7 +465,6 @@ Function SpotPlotOverTime(mList,divVar)
 			wName = StringFromList(j,wList)
 			ReplaceWave/W=spotPlot trace=$wName, $wName[0,i]
 		endfor
-		// TextBox/W=spotPlot/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00 num2str(i)
 		// take snap
 		DoUpdate
 		DoWindow/F spotPlot
@@ -480,6 +486,8 @@ Function SpotPlotOverTime(mList,divVar)
 			endif
 			tiffName = "coloc" + iString + ".tif"
 			SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
+//			tiffName = "coloc" + iString
+//			SavePICT/O/P=_PictGallery_/E=-7/B=288 as tiffName
 		endif
 	endfor
 	CloseMovie
@@ -496,7 +504,8 @@ Static Function NearestTon(value)
 	return newVal
 End
 
-Function MakeFinalImage()
+Function MakeFinalImage(nCh)
+	Variable nCh
 	WAVE gVarWave
 	
 	//make 2 ch overlay tiff
@@ -526,15 +535,60 @@ Function MakeFinalImage()
 	WAVE panel1,panel2,panel3
 	Concatenate/O/KILL/NP=0 {panel1,panel2,panel3}, montageTiff
 	// clean up
-	KillWaves/Z tempMat,M_4DTranspose
+	KillWaves/Z tempMat,M_4DTranspose,ch1G,ch2R,ch3B
 	
 	// display image with slider
 	NewImage/N=montage montageTiff
 	DoWindow/F montage
 	WMAppend3DImageSlider()
 	
+	WAVE/T PathWave
+	String OutputFolderName = PathWave[4]
+	String folderStr
+	String listAllFiles,fileName
+	Variable i=0,numImages=0
+	String wavestr,myStr, firstWave
+	
 	if(gVarWave[3] == 1)
-		// make the plot images
+		if ((nCh & 2^0) != 0) // bit 0 is set
+			// ch1
+			folderStr = OutputFolderName + "mask_1:TIFFs:"
+			NewPath/O/Q OutputTIFFFolder folderStr
+			listAllFiles=indexedfile(OutputTIFFFolder,-1,".tif")
+			do
+				fileName=StringFromList(i,listAllFiles)
+				if(strlen(fileName)<=0)
+					break
+				endif
+				ImageLoad/Q/P=diskFolderPath/T=tiff fileName
+				waveStr=StringFromList(0,S_waveNames)
+				sprintf myStr,"%s%04d","temp",i
+				Rename $wavestr,$myStr
+					if(i==0)
+					firstWave=myStr
+				endif
+				numImages+=1
+				i+=1
+			while(1)
+			ImageTransform/K stackImages $firstWave
+			WAVE M_Stack
+			Rename M_Stack, Stack_1
+		endif
+		if ((nCh & 2^1) != 0) // bit 1 is set
+		// ch2
+		folderStr = OutputFolderName + "mask_2:TIFFs:"
+		NewPath/O/Q OutputTIFFFolder folderStr
+		
+		endif
+		if ((nCh & 2^0) != 0 && (nCh & 2^1) !=0) // bit 0 AND bit 1 are set
+		// two channels
+		folderStr = OutputFolderName + "mask_3:TIFFs:"
+		NewPath/O/Q OutputTIFFFolder folderStr
+		folderStr = OutputFolderName + "spotPlot:TIFFs:"
+		NewPath/O/Q OutputTIFFFolder folderStr
+		
+		// spotWave
+		endif
 	endif
 	
 	// save image as tiff stack
