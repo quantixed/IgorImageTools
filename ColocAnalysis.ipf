@@ -538,6 +538,7 @@ Function MakeFinalImage(nCh)
 	KillWaves/Z tempMat,M_4DTranspose,ch1G,ch2R,ch3B
 	
 	// display image with slider
+	DoWindow/K montage
 	NewImage/N=montage montageTiff
 	DoWindow/F montage
 	WMAppend3DImageSlider()
@@ -545,52 +546,74 @@ Function MakeFinalImage(nCh)
 	WAVE/T PathWave
 	String OutputFolderName = PathWave[4]
 	String folderStr
-	String listAllFiles,fileName
-	Variable i=0,numImages=0
-	String wavestr,myStr, firstWave
 	
 	if(gVarWave[3] == 1)
 		if ((nCh & 2^0) != 0) // bit 0 is set
 			// ch1
 			folderStr = OutputFolderName + "mask_1:TIFFs:"
-			NewPath/O/Q OutputTIFFFolder folderStr
-			listAllFiles=indexedfile(OutputTIFFFolder,-1,".tif")
-			do
-				fileName=StringFromList(i,listAllFiles)
-				if(strlen(fileName)<=0)
-					break
-				endif
-				ImageLoad/Q/P=diskFolderPath/T=tiff fileName
-				waveStr=StringFromList(0,S_waveNames)
-				sprintf myStr,"%s%04d","temp",i
-				Rename $wavestr,$myStr
-					if(i==0)
-					firstWave=myStr
-				endif
-				numImages+=1
-				i+=1
-			while(1)
-			ImageTransform/K stackImages $firstWave
+			LoadAndStack(folderStr)
 			WAVE M_Stack
 			Rename M_Stack, Stack_1
 		endif
 		if ((nCh & 2^1) != 0) // bit 1 is set
-		// ch2
-		folderStr = OutputFolderName + "mask_2:TIFFs:"
-		NewPath/O/Q OutputTIFFFolder folderStr
-		
+			// ch2
+			folderStr = OutputFolderName + "mask_2:TIFFs:"
+			NewPath/O/Q OutputTIFFFolder folderStr
+			LoadAndStack(folderStr)
+			WAVE M_Stack
+			Rename M_Stack, Stack_2
 		endif
 		if ((nCh & 2^0) != 0 && (nCh & 2^1) !=0) // bit 0 AND bit 1 are set
-		// two channels
-		folderStr = OutputFolderName + "mask_3:TIFFs:"
-		NewPath/O/Q OutputTIFFFolder folderStr
+			// two channels
+			folderStr = OutputFolderName + "mask_3:TIFFs:"
+			NewPath/O/Q OutputTIFFFolder folderStr
+			LoadAndStack(folderStr)
+			WAVE M_Stack
+			Rename M_Stack, Stack_3
+		endif
+		// spotPlot
 		folderStr = OutputFolderName + "spotPlot:TIFFs:"
 		NewPath/O/Q OutputTIFFFolder folderStr
-		
-		// spotWave
-		endif
+		LoadAndStack(folderStr)
+		WAVE M_Stack
+		Rename M_Stack, Stack_4
 	endif
-	
+	WAVE/Z Stack_1,Stack_2,Stack_3,Stack_4
+	Concatenate/O/KILL/NP=0 {Stack_1,Stack_2}, Stack_Top
+	Concatenate/O/KILL/NP=0 {Stack_3,Stack_4}, Stack_Bottom
+	Concatenate/O/KILL/NP=1 {Stack_Top,Stack_Bottom}, Stack_Plots
+	DoWindow/K plotImage
+	NewImage/N=plotImage Stack_Plots
+	DoWindow/F PlotImage
+	WMAppend3DImageSlider()
 	// save image as tiff stack
 
+End
+
+Static Function LoadAndStack(folderStr)
+	String folderStr
+	
+	NewPath/O/Q OutputTIFFFolder folderStr
+	String listAllFiles=indexedfile(OutputTIFFFolder,-1,".tif")
+	
+	String fileName
+	Variable i=0,numImages=0
+	String wavestr,myStr, firstWave
+
+	do
+		fileName=StringFromList(i,listAllFiles)
+		if(strlen(fileName)<=0)
+			break
+		endif
+		ImageLoad/Q/P=OutputTIFFFolder/T=tiff fileName
+		waveStr=StringFromList(0,S_waveNames)
+		sprintf myStr,"%s%04d","temp",i
+		Rename $wavestr,$myStr
+			if(i==0)
+			firstWave=myStr
+		endif
+		numImages+=1
+		i+=1
+	while(1)
+	ImageTransform/K stackImages $firstWave
 End
