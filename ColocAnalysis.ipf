@@ -306,8 +306,8 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	ModifyGraph/W=Result gridStyle=5,gridHair=0
 	ModifyGraph/W=Result manTick={0,0.2,0,2},manMinor={0,1}
 	ModifyGraph/W=Result axRGB=(65535,65535,65535),tlblRGB=(65535,65535,65535),alblRGB=(65535,65535,65535),gridRGB=(65535,65535,65535)
-	TextBox/W=Result/C/N=text0/F=0/B=1/A=LT/X=0.00/Y=0.00 NameOfWave(m1)
-	TextBox/W=Result/C/N=text1/F=0/B=1/A=RB/X=0.00/Y=0.00 NameOfWave(m0)
+	TextBox/W=Result/C/N=text0/F=0/B=1/A=LT/X=0.00/Y=0.00/G=(5397,60138,5397) "Ch2"
+	TextBox/W=Result/C/N=text1/F=0/B=1/A=RB/X=0.00/Y=0.00/G=(58339,7196,7196) "Ch1"
 	
 	String iString, tiffName
 	
@@ -319,7 +319,13 @@ Function MakeColocMovie(m0,m1,subFolderName)
 			d0 /= (m0Max - bg0)
 			d1 /= (m1Max - bg1)
 		endif
-		TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00 num2str(i)
+		if(cmpstr(subfolderName,"Mask_1") == 0)
+			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00/G=(58339,7196,7196) num2str(i)
+		elseif(cmpstr(subfolderName,"Mask_2") == 0)
+			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00/G=(5397,60138,5397) num2str(i)
+		elseif(cmpstr(subfolderName,"Mask_3") == 0)
+			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00/G=(64507,48830,10023) num2str(i)
+		endif
 		// take snap
 		DoUpdate
 		DoWindow/F Result
@@ -454,7 +460,7 @@ Function SpotPlotOverTime(mList,divVar)
 	SetAxis/W=spotPlot left 0,NearestTon(maxValL)
 	if(nMask > 1)
 		SetAxis/W=spotPlot right 0,NearestTon(maxValR)
-		Label/W=spotPlot right "Number of spots (\\K(64507,48830,10023)ch1 | ch2\\K(0,0,0))"
+		Label/W=spotPlot right "Number of spots (\\K(64507,48830,10023)ch1" + U+2229 + "ch2\\K(0,0,0))"
 	endif
 	
 	String wList = ReplaceString("mask",mList,"nSpot")
@@ -604,6 +610,8 @@ Function MakeFinalImage(nCh)
 	endif
 	DoWindow/K finalImage
 	NewImage/N=finalImage finalTIFF
+	ModifyGraph/W=finalImage mirror(top)=0,noLabel=2,axThick=0
+	ModifyGraph/W=finalImage margin=1
 	NewPath/O/Q OutputTIFFFolder outputFolderName
 	ImageSave/O/S/U/P=OutputTIFFFolder finalTIFF as "finalTIFF.tif"
 	DoWindow/F finalImage

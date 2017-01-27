@@ -2,12 +2,14 @@
 Image processing tools for IgorPro
 
 ### ColocAnalysis
-A workflow to analyse colocalisation in IgorPro (IP7 only). Currently, the workflow is to run from the Macros menu. User selects the TIFFs for channel 1 and 2, then the output from [ComDet](https://github.com/ekatrukha/ComDet) (channel 1 and channel 2) and then specify an output directory. A movie of pixel intensities for the two channels is generated (as a mov or a directory of TIFFs).
+A workflow to analyse colocalisation in IgorPro (IP7 only). Select Coloc Analysis... from the Macros menu. Then in the panel selects the TIFFs for channel 1 and 2, then (optionally) the output from [ComDet](https://github.com/ekatrukha/ComDet) (channel 1 and/or channel 2) and then specify an output directory. The result is a move called finalTIFF which shows:
 
-*TO DO:* Some work is required
-
-1. to pull out additional data.
-2. to add sliders to look at data interactively in Igor
+- each channel in grayscale along with a red/green merge
+- plots of pixel intensities from each channel
+	- ch1 spots
+	- ch2 spots
+	- overlap between ch1 ch2
+- a line plot to show the number of spots detected for each channel and the number of spots which coincide.
 
 ### Montages.ipf
 
