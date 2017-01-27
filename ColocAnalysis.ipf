@@ -537,11 +537,11 @@ Function MakeFinalImage(nCh)
 	// clean up
 	KillWaves/Z tempMat,M_4DTranspose,ch1G,ch2R,ch3B
 	
-	// display image with slider
-	DoWindow/K montage
-	NewImage/N=montage montageTiff
-	DoWindow/F montage
-	WMAppend3DImageSlider()
+//	// display image with slider
+//	DoWindow/K montage
+//	NewImage/N=montage montageTiff
+//	DoWindow/F montage
+//	WMAppend3DImageSlider()
 	
 	WAVE/T PathWave
 	String OutputFolderName = PathWave[4]
@@ -582,9 +582,31 @@ Function MakeFinalImage(nCh)
 	Concatenate/O/KILL/NP=0 {Stack_1,Stack_2}, Stack_Top
 	Concatenate/O/KILL/NP=0 {Stack_3,Stack_4}, Stack_Bottom
 	Concatenate/O/KILL/NP=1 {Stack_Top,Stack_Bottom}, Stack_Plots
-	DoWindow/K plotImage
-	NewImage/N=plotImage Stack_Plots
-	DoWindow/F PlotImage
+	
+//	DoWindow/K plotImage
+//	NewImage/N=plotImage Stack_Plots
+//	DoWindow/F PlotImage
+//	WMAppend3DImageSlider()
+	if(dimsize(montageTIFF,1) == dimsize(stack_Plots,1))
+		Concatenate/O/NP=0 {montageTIFF,Stack_Plots}, finalTIFF
+	elseif(dimsize(montageTIFF,1) > dimsize(stack_Plots,1))
+		// make stackplot bigger then concatenate
+		Make/O/B/U/N=(dimsize(stack_Plots,0),dimsize(montageTIFF,1)-dimsize(stack_Plots,1),dimsize(stack_Plots,2),dimsize(stack_Plots,3)) greyStack
+		Concatenate/O/NP=1 {stack_Plots,greyStack}, tempStack
+		Concatenate/O/NP=0 {montageTIFF,tempStack}, finalTIFF
+		KillWaves tempStack,greyStack
+	elseif(dimsize(montageTIFF,1) < dimsize(stack_Plots,1))
+		// make montageTIFF bigger then concatenate
+		Make/O/B/U/N=(dimsize(montageTIFF,0),dimsize(stack_Plots,1)-dimsize(montageTIFF,1),dimsize(montageTIFF,2),dimsize(montageTIFF,3)) greyStack
+		Concatenate/O/NP=1 {montageTIFF,greyStack}, tempStack
+		Concatenate/O/NP=0 {tempStack,stack_Plots}, finalTIFF
+		KillWaves tempStack,greyStack
+	endif
+	DoWindow/K finalImage
+	NewImage/N=finalImage finalTIFF
+	NewPath/O/Q OutputTIFFFolder outputFolderName
+	ImageSave/O/S/U/P=OutputTIFFFolder finalTIFF as "finalTIFF.tif"
+	DoWindow/F finalImage
 	WMAppend3DImageSlider()
 	// save image as tiff stack
 
