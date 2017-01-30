@@ -594,30 +594,28 @@ Function MakeFinalImage(nCh)
 //	DoWindow/F PlotImage
 //	WMAppend3DImageSlider()
 	if(dimsize(montageTIFF,1) == dimsize(stack_Plots,1))
-		Concatenate/O/NP=0 {montageTIFF,Stack_Plots}, finalTIFF
+		Concatenate/O/KILL/NP=0 {montageTIFF,Stack_Plots}, finalTIFF
 	elseif(dimsize(montageTIFF,1) > dimsize(stack_Plots,1))
 		// make stackplot bigger then concatenate
 		Make/O/B/U/N=(dimsize(stack_Plots,0),dimsize(montageTIFF,1)-dimsize(stack_Plots,1),dimsize(stack_Plots,2),dimsize(stack_Plots,3)) greyStack
-		Concatenate/O/NP=1 {stack_Plots,greyStack}, tempStack
-		Concatenate/O/NP=0 {montageTIFF,tempStack}, finalTIFF
+		Concatenate/O/KILL/NP=1 {stack_Plots,greyStack}, tempStack
+		Concatenate/O/KILL/NP=0 {montageTIFF,tempStack}, finalTIFF
 		KillWaves tempStack,greyStack
 	elseif(dimsize(montageTIFF,1) < dimsize(stack_Plots,1))
 		// make montageTIFF bigger then concatenate
 		Make/O/B/U/N=(dimsize(montageTIFF,0),dimsize(stack_Plots,1)-dimsize(montageTIFF,1),dimsize(montageTIFF,2),dimsize(montageTIFF,3)) greyStack
-		Concatenate/O/NP=1 {montageTIFF,greyStack}, tempStack
-		Concatenate/O/NP=0 {tempStack,stack_Plots}, finalTIFF
-		KillWaves tempStack,greyStack
+		Concatenate/O/KILL/NP=1 {montageTIFF,greyStack}, tempStack
+		Concatenate/O/KILL/NP=0 {tempStack,stack_Plots}, finalTIFF
+		KillWaves/Z tempStack,greyStack
 	endif
+	NewPath/O/Q OutputTIFFFolder outputFolderName
+	ImageSave/O/S/U/P=OutputTIFFFolder finalTIFF as "finalTIFF.tif"
 	DoWindow/K finalImage
 	NewImage/N=finalImage finalTIFF
 	ModifyGraph/W=finalImage mirror(top)=0,noLabel=2,axThick=0
 	ModifyGraph/W=finalImage margin=1
-	NewPath/O/Q OutputTIFFFolder outputFolderName
-	ImageSave/O/S/U/P=OutputTIFFFolder finalTIFF as "finalTIFF.tif"
 	DoWindow/F finalImage
 	WMAppend3DImageSlider()
-	// save image as tiff stack
-
 End
 
 Static Function LoadAndStack(folderStr)
