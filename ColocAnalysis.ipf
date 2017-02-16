@@ -13,19 +13,19 @@ Function myIO_Panel()
 	// make global text wave to store paths and output folder
 	Make/T/O/N=5 PathWave
 	// make global numeric wave for other variables
-	Make/O/N=4 gVarWave={0,0,1,0}
+	Make/O/N=6 gVarWave={0,0,1,1,5,0}
 	DoWindow/K FilePicker
-	NewPanel/N=FilePicker/W=(81,73,774,298)
-	Button SelectFile1,pos={12.00,10.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch1 TIFF"
-	Button SelectFile2,pos={12.00,41.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch2 TIFF"
-	Button SelectFile3,pos={12.00,72.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch1 ComDet"
-	Button SelectFile4,pos={12.00,103.00},size={140.00,20.00},proc=ButtonProc,title="Select Ch2 ComDet"
-	Button Output,pos={12.00,134.00},size={140.00,20.00},proc=ButtonProc,title="Select Output Folder"
-	SetVariable File1,pos={168.00,13.00},size={500.00,14.00},value= PathWave[0]
-	SetVariable File2,pos={168.00,44.00},size={500.00,14.00},value= PathWave[1]
-	SetVariable File3,pos={168.00,75.00},size={500.00,14.00},value= PathWave[2]
-	SetVariable File4,pos={168.00,106.00},size={500.00,14.00},value= PathWave[3]
-	SetVariable File5,pos={168.00,137.00},size={500.00,14.00},value= PathWave[4]
+	NewPanel/N=FilePicker/K=1/W=(81,73,774,298)
+	Button SelectFile1,pos={12,10},size={140,20},proc=ButtonProc,title="Select Ch1 TIFF"
+	Button SelectFile2,pos={12,41},size={140,20},proc=ButtonProc,title="Select Ch2 TIFF"
+	Button SelectFile3,pos={12,72},size={140,20},proc=ButtonProc,title="Select Ch1 ComDet"
+	Button SelectFile4,pos={12,103},size={140,20},proc=ButtonProc,title="Select Ch2 ComDet"
+	Button Output,pos={12,134},size={140,20},proc=ButtonProc,title="Select Output Folder"
+	SetVariable File1,pos={168,13},size={500,14},value= PathWave[0]
+	SetVariable File2,pos={168,44},size={500,14},value= PathWave[1]
+	SetVariable File3,pos={168,75},size={500,14},value= PathWave[2]
+	SetVariable File4,pos={168,106},size={500,14},value= PathWave[3]
+	SetVariable File5,pos={168,137},size={500,14},value= PathWave[4]
 	
 	CheckBox normCheck,pos={12,161},size={69,14},title="Normalise channels",value= gVarWave[2]
 	CheckBox tiffCheck,pos={12,181},size={69,14},title="Make Coloc Tiffs",value= gVarWave[3]
@@ -33,7 +33,10 @@ Function myIO_Panel()
 	SetVariable bg0SetVar,pos={168,161},size={166,15},title="Background Ch1:",format="%g",value= gVarWave[0]
 	SetVariable bg1SetVar,pos={168,181},size={166,15},title="Background Ch2:",format="%g",value= gVarWave[1]
 	
-	Button DoIt,pos={564.00,181.00},size={100.00,20.00},proc=ButtonProc,title="Do It"
+	SetVariable timeSetVar,pos={348,161},size={126,15},title="Sec per frame:",format="%g",value= gVarWave[4]
+	SetVariable lenSetVar,pos={348,181},size={126,15},title="Last frame (0 for all)",format="%g",value= gVarWave[5]
+	
+	Button DoIt,pos={564,181},size={100,20},proc=ButtonProc,title="Do It"
 End
  
 // define buttons
@@ -250,7 +253,7 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	Wave m0,m1
 	String subFolderName
 	
-	Wave gVarWave
+	WAVE/Z gVarWave
 	Variable bg0 = gVarWave[0]
 	Variable bg1 = gVarWave[1]
 	// 0 is no norm (graph scaled to Movie max), 1 is normalise to channel max for whole movie
@@ -283,6 +286,17 @@ Function MakeColocMovie(m0,m1,subFolderName)
 		Abort "Different sizes of frames in each channel"
 	endif
 	
+	Variable nFrames
+	if (gVarWave[5] == 0)
+		nFrames = m0Frames
+	else
+		if (gVarWave[5] < m0Frames)
+			nFrames = gVarWave[5]
+		else
+			nFrames = m0Frames
+		endif
+	endif
+	
 	Variable i
 	
 	// Set-up window for display
@@ -306,12 +320,12 @@ Function MakeColocMovie(m0,m1,subFolderName)
 	ModifyGraph/W=Result gridStyle=5,gridHair=0
 	ModifyGraph/W=Result manTick={0,0.2,0,2},manMinor={0,1}
 	ModifyGraph/W=Result axRGB=(65535,65535,65535),tlblRGB=(65535,65535,65535),alblRGB=(65535,65535,65535),gridRGB=(65535,65535,65535)
-	TextBox/W=Result/C/N=text0/F=0/B=1/A=LT/X=0.00/Y=0.00/G=(5397,60138,5397) "Ch2"
-	TextBox/W=Result/C/N=text1/F=0/B=1/A=RB/X=0.00/Y=0.00/G=(58339,7196,7196) "Ch1"
+	TextBox/W=Result/C/N=text0/F=0/B=1/A=LT/X=0/Y=0/G=(5397,60138,5397) "Ch2"
+	TextBox/W=Result/C/N=text1/F=0/B=1/A=RB/X=0/Y=0/G=(58339,7196,7196) "Ch1"
 	
 	String iString, tiffName
 	
-	for(i = 0; i < m0Frames; i += 1)
+	for(i = 0; i < nFrames; i += 1)
 		Coloc(m0,m1,bg0,bg1,i)
 		if(normOpt ==1)
 			d0 -= bg0
@@ -320,11 +334,11 @@ Function MakeColocMovie(m0,m1,subFolderName)
 			d1 /= (m1Max - bg1)
 		endif
 		if(cmpstr(subfolderName,"Mask_1") == 0)
-			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00/G=(58339,7196,7196) num2str(i)
+			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0/Y=0/G=(58339,7196,7196) num2str(i)
 		elseif(cmpstr(subfolderName,"Mask_2") == 0)
-			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00/G=(5397,60138,5397) num2str(i)
+			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0/Y=0/G=(5397,60138,5397) num2str(i)
 		elseif(cmpstr(subfolderName,"Mask_3") == 0)
-			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0.00/Y=0.00/G=(64507,48830,10023) num2str(i)
+			TextBox/W=Result/C/N=text2/F=0/B=1/A=RT/X=0/Y=0/G=(64507,48830,10023) num2str(i)
 		endif
 		// take snap
 		DoUpdate
@@ -392,6 +406,7 @@ Function SpotPlotOverTime(mList,divVar)
 	
 	Wave gVarWave
 	Variable tiffOpt = gVarWave[3]
+	Variable secPerFrame = gVarWave[4]
 	
 	Wave/T PathWave
 	String outputFolderName = PathWave[4]
@@ -407,7 +422,18 @@ Function SpotPlotOverTime(mList,divVar)
 	Variable nMask = ItemsInList(mList)
 	String mName = StringFromList(0,mList)
 	Wave m0 = $mName
-	Variable nFrames = dimsize(m0,2)
+	
+	Variable nFrames
+	if (gVarWave[5] == 0)
+		nFrames = dimsize(m0,2)
+	else
+		if (gVarWave[5] < dimsize(m0,2))
+			nFrames = gVarWave[5]
+		else
+			nFrames = dimsize(m0,2)
+		endif
+	endif
+	
 	Variable maxValL=0,maxValR=0
 	String wName
 	
@@ -426,6 +452,7 @@ Function SpotPlotOverTime(mList,divVar)
 			w0[j] = sum(m1)
 		endfor
 		w0 /= divVar
+		SetScale/P x 0,secPerFrame,"", w0
 		if(wavemax(w0) > maxValL)
 			maxValL = wavemax(w0)
 		endif
@@ -455,12 +482,12 @@ Function SpotPlotOverTime(mList,divVar)
 	ModifyGraph/W=spotPlot mode=0
 	ModifyGraph/W=spotPlot lsize=2
 	Label/W=spotPlot left "Number of spots (\\K(58339,7196,7196)ch1 \\K(5397,60138,5397)ch2\\K(0,0,0))"
-	// ModifyGraph/W=spotPlot width={Plan,1,bottom,left}
-	SetAxis/W=spotPlot bottom 0,nFrames-1
+	Label/W=spotPlot bottom "Time (s)"
+	SetAxis/W=spotPlot bottom 0,((nFrames-1) * secPerFrame)
 	SetAxis/W=spotPlot left 0,NearestTon(maxValL)
 	if(nMask > 1)
 		SetAxis/W=spotPlot right 0,NearestTon(maxValR)
-		Label/W=spotPlot right "Number of spots (\\K(64507,48830,10023)ch1" + U+2229 + "ch2\\K(0,0,0))"
+		Label/W=spotPlot right "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
 	endif
 	
 	String wList = ReplaceString("mask",mList,"nSpot")
@@ -492,8 +519,6 @@ Function SpotPlotOverTime(mList,divVar)
 			endif
 			tiffName = "coloc" + iString + ".tif"
 			SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
-//			tiffName = "coloc" + iString
-//			SavePICT/O/P=_PictGallery_/E=-7/B=288 as tiffName
 		endif
 	endfor
 	CloseMovie
@@ -514,29 +539,43 @@ Function MakeFinalImage(nCh)
 	Variable nCh
 	WAVE gVarWave
 	
-	//make 2 ch overlay tiff
+	// make 2 ch overlay tiff
 	WAVE ch1tiff,ch2tiff
 	MatrixOp/O ch1G = uint8(255 * (ch1tiff/maxVal(ch1tiff)))
 	MatrixOp/O ch2R = uint8(255 * (ch2tiff/maxVal(ch2tiff)))
 	Variable xx = dimsize(ch1tiff,0)
 	Variable yy = dimsize(ch1tiff,1)
 	Variable zz = dimsize(ch1tiff,2)
+	// Make the blue channel
 	Make/O/N=(xx,yy,zz)/B/U ch3B=0
+	
+	// deal with the possibility that movie does not need to be full length
+	Variable nFrames
+	if (gVarWave[5] == 0)
+		nFrames = dimsize(ch1tiff,2)
+	else
+		if (gVarWave[5] < dimsize(ch1tiff,2))
+			nFrames = gVarWave[5]
+		else
+			nFrames = dimsize(ch1tiff,2)
+		endif
+	endif
+	
 	// make green panel grayscale
 	Concatenate/O {ch1G,ch1G,ch1G}, tempMat
 	ImageTransform/TM4D=1284 transpose4D tempMat
 	WAVE M_4DTranspose
-	Duplicate/O M_4DTranspose, panel1
+	Duplicate/O/RMD=[][][][0,nFrames-1] M_4DTranspose, panel1
 	KillWaves tempMat
-	// make green panel grayscale
+	// make red panel grayscale
 	Concatenate/O {ch2R,ch2R,ch2R}, tempMat
 	ImageTransform/TM4D=1284 transpose4D tempMat
-	Duplicate/O M_4DTranspose, panel2
+	Duplicate/O/RMD=[][][][0,nFrames-1] M_4DTranspose, panel2
 	KillWaves tempMat
 	// make merge
 	Concatenate/O {ch1G,ch2R,ch3B}, tempMat
 	ImageTransform/TM4D=1284 transpose4D tempMat
-	Duplicate/O M_4DTranspose, panel3
+	Duplicate/O/RMD=[][][][0,nFrames-1] M_4DTranspose, panel3
 	// make montage
 	WAVE panel1,panel2,panel3
 	Concatenate/O/KILL/NP=0 {panel1,panel2,panel3}, montageTiff
