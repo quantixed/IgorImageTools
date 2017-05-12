@@ -46,24 +46,20 @@ Function CorrectDrift(w0,optVar)
 			xhi = xcsr(b)
 			ylow = vcsr(a)
 			yhi = vcsr(b)
+			w1 -= ((yhi - ylow) / (xhi - xlow)) * x
 		elseif(optVar == 1)
 			CurveFit/Q/NTHR=0 line w0[pcsr(A),pcsr(B)]
 			WAVE/Z W_coef
+			w1 -= (W_coef[1] * x) + W_coef[0]
 		elseif(optVar == 2)
 			CurveFit/Q/NTHR=0 exp w0[pcsr(A),pcsr(B)]
 			WAVE/Z W_coef
+			w1 -= W_coef[0] + W_coef[1] * exp(-W_coef[2] * x)
 		endif
+		AppendToGraph/W=offsetGraph w1
+	else
+		Abort "Try again. Please place cursors on graph."
 	endif
-	
-	if(optVar == 0)
-		w1 -= ((yhi - ylow) / (xhi - xlow)) * x
-	elseif(optVar == 1)
-		w1 -= (W_coef[1] * x) + W_coef[0]
-	elseif(optVar == 2)
-		w1 -= W_coef[0] + W_coef[1] * exp(-W_coef[2] * x)
-	endif
-	
-	AppendToGraph/W=offsetGraph w1
 End
 
 // This is for marquee control
@@ -103,31 +99,26 @@ end
 Function CDButtonProc(ctrlName) : ButtonControl
 	String ctrlName
 	
+	if(exists("gCDWName") != 2)
+		Abort "Pick a wave to correct."
+	endif
+	
 	SVAR CDWName = gCDWName
-	Wave w0 = $CDWName
+	Wave/Z w0 = $CDWName
 	
 	strswitch(ctrlName)
  
 		case "CDQD"	:
-			if (strlen(CDWName) == 0) // user cancelled or some error occured
-				return -1
-			endif
 			CorrectDrift(w0,0)
 			Print "Using quick and dirty method."
 			break
  
 		case "CDLF"	:
-			if (strlen(CDWName) == 0) // user cancelled or some error occured
-				return -1
-			endif
 			CorrectDrift(w0,1)
 			Print "Using line fit method."
 			break
 		
 		case "CDEF"	:
-			if (strlen(CDWName) == 0) // user cancelled or some error occured
-				return -1
-			endif
 			CorrectDrift(w0,2)
 			Print "Using exponential fit method."
 			break
