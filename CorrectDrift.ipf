@@ -7,19 +7,11 @@ Menu "Macros"
 	"Correct Drift", CDPopupWaveSelector()
 end
 
-	if (strlen(CsrWave(A))>0 && strlen(CsrWave(B))>0)	// Cursors are on trace?
-		xlow = xcsr(a)
-		xhi = xcsr(b)
-		ylow = vcsr(a)
-		yhi = vcsr(b)
-	endif
-	
-	
-	AppendToGraph/W=offsetGraph w1
-End
-
 // This function presents each wave, user specifies a region of baseline
-// Igor uses these two values to fit a line and Correct Drift
+// Igor uses these two values to Correct Drift
+// Option 0 = quick and dirty - line between points is used
+// Option 1 = line method - a line fit to the data is used
+// Option 2 = exponential method - an exponential fit to the data is used
 Function CorrectDrift(w0,optVar)
 	Wave w0
 	Variable optVar
