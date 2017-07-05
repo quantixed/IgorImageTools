@@ -13,7 +13,7 @@ Function myIO_Panel()
 	// make global text wave to store paths and output folder
 	Make/T/O/N=5 PathWave
 	// make global numeric wave for other variables
-	Make/O/N=6 gVarWave={0,0,1,1,5,0}
+	Make/O/N=7 gVarWave={0,0,1,1,5,0,0}
 	DoWindow/K FilePicker
 	NewPanel/N=FilePicker/K=1/W=(81,73,774,298)
 	Button SelectFile1,pos={12,10},size={140,20},proc=ButtonProc,title="Select Ch1 TIFF"
@@ -29,6 +29,7 @@ Function myIO_Panel()
 	
 	CheckBox normCheck,pos={12,161},size={69,14},title="Normalise channels",value= gVarWave[2]
 	CheckBox tiffCheck,pos={12,181},size={69,14},title="Make Coloc Tiffs",value= gVarWave[3]
+	CheckBox soloCheck,pos={12,201},size={69,14},title="Do all plots?",value= gVarWave[6]
 	
 	SetVariable bg0SetVar,pos={168,161},size={166,15},title="Background Ch1:",format="%g",value= gVarWave[0]
 	SetVariable bg1SetVar,pos={168,181},size={166,15},title="Background Ch2:",format="%g",value= gVarWave[1]
@@ -98,6 +99,8 @@ Function ButtonProc(ctrlName) : ButtonControl
 				gVarWave[2] = V_Value
 				ControlInfo/W=FilePicker tiffCheck
 				gVarWave[3] = V_Value
+				ControlInfo/W=FilePicker soloCheck
+				gVarWave[6] = V_Value
 				LoadAllFiles(PathWave)
 				break
  
@@ -414,10 +417,8 @@ Function SpotPlotOverTime(mList,divVar)
 	// Define Paths for OutputSubFolder and OutputTIFFFolder
 	String folderStr = OutputFolderName + "spotPlot:"
 	NewPath/C/O/Q/Z OutputSubFolder folderStr
-	if(tiffOpt == 1)
-		folderStr += "TIFFs:"
-		NewPath/C/O/Q/Z OutputTIFFFolder folderStr
-	endif
+	folderStr += "TIFFs:"
+	NewPath/C/O/Q/Z OutputTIFFFolder folderStr
 	
 	Variable nMask = ItemsInList(mList)
 	String mName = StringFromList(0,mList)
@@ -506,20 +507,17 @@ Function SpotPlotOverTime(mList,divVar)
 		endif
 		AddMovieFrame
 		
-		// Optional: save out pics for gif assembly in ImageJ
-		if(tiffOpt == 1)
-			if( i >= 0 && i < 10)
-				iString = "000" + num2str(i)
-			elseif( i >=10 && i < 100)
-				iString = "00" + num2str(i)
-				elseif(i >= 100 && i < 1000)
-				iString = "0" + num2str(i)
-			elseif(i >= 1000 && i < 10000)
-				iString = num2str(i)
-			endif
-			tiffName = "coloc" + iString + ".tif"
-			SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
+		if( i >= 0 && i < 10)
+			iString = "000" + num2str(i)
+		elseif( i >=10 && i < 100)
+			iString = "00" + num2str(i)
+		elseif(i >= 100 && i < 1000)
+			iString = "0" + num2str(i)
+		elseif(i >= 1000 && i < 10000)
+			iString = num2str(i)
 		endif
+		tiffName = "coloc" + iString + ".tif"
+		SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
 	endfor
 	CloseMovie
 End
@@ -592,7 +590,15 @@ Function MakeFinalImage(nCh)
 	String OutputFolderName = PathWave[4]
 	String folderStr
 	
-	if(gVarWave[3] == 1)
+	// spotPlot
+	folderStr = OutputFolderName + "spotPlot:TIFFs:"
+	NewPath/O/Q OutputTIFFFolder folderStr
+	LoadAndStack(folderStr)
+	WAVE M_Stack
+	Rename M_Stack, Stack_4
+	
+	// gVarWave[6] now means do you want to add all coloc plots?
+	if(gVarWave[6] == 1 && gVarWave[3] == 1)
 		if ((nCh & 2^0) != 0) // bit 0 is set
 			// ch1
 			folderStr = OutputFolderName + "mask_1:TIFFs:"
@@ -616,17 +622,14 @@ Function MakeFinalImage(nCh)
 			WAVE M_Stack
 			Rename M_Stack, Stack_3
 		endif
-		// spotPlot
-		folderStr = OutputFolderName + "spotPlot:TIFFs:"
-		NewPath/O/Q OutputTIFFFolder folderStr
-		LoadAndStack(folderStr)
-		WAVE M_Stack
-		Rename M_Stack, Stack_4
+		WAVE/Z Stack_1,Stack_2,Stack_3,Stack_4
+		Concatenate/O/KILL/NP=0 {Stack_1,Stack_2}, Stack_Top
+		Concatenate/O/KILL/NP=0 {Stack_3,Stack_4}, Stack_Bottom
+		Concatenate/O/KILL/NP=1 {Stack_Top,Stack_Bottom}, Stack_Plots
+	else
+		WAVE/Z Stack_4
+		Rename Stack_4, Stack_plots
 	endif
-	WAVE/Z Stack_1,Stack_2,Stack_3,Stack_4
-	Concatenate/O/KILL/NP=0 {Stack_1,Stack_2}, Stack_Top
-	Concatenate/O/KILL/NP=0 {Stack_3,Stack_4}, Stack_Bottom
-	Concatenate/O/KILL/NP=1 {Stack_Top,Stack_Bottom}, Stack_Plots
 	
 //	DoWindow/K plotImage
 //	NewImage/N=plotImage Stack_Plots
@@ -636,10 +639,10 @@ Function MakeFinalImage(nCh)
 		Concatenate/O/KILL/NP=0 {montageTIFF,Stack_Plots}, finalTIFF
 	elseif(dimsize(montageTIFF,1) > dimsize(stack_Plots,1))
 		// make stackplot bigger then concatenate
-		Make/O/B/U/N=(dimsize(stack_Plots,0),dimsize(montageTIFF,1)-dimsize(stack_Plots,1),dimsize(stack_Plots,2),dimsize(stack_Plots,3)) greyStack
+		Make/O/B/U/N=(dimsize(stack_Plots,0),dimsize(montageTIFF,1)-dimsize(stack_Plots,1),dimsize(stack_Plots,2),dimsize(stack_Plots,3)) greyStack=255
 		Concatenate/O/KILL/NP=1 {stack_Plots,greyStack}, tempStack
 		Concatenate/O/KILL/NP=0 {montageTIFF,tempStack}, finalTIFF
-		KillWaves tempStack,greyStack
+		KillWaves/Z tempStack,greyStack	// getting occasional locked wave error here - added /Z
 	elseif(dimsize(montageTIFF,1) < dimsize(stack_Plots,1))
 		// make montageTIFF bigger then concatenate
 		Make/O/B/U/N=(dimsize(montageTIFF,0),dimsize(stack_Plots,1)-dimsize(montageTIFF,1),dimsize(montageTIFF,2),dimsize(montageTIFF,3)) greyStack
