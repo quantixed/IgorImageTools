@@ -13,7 +13,7 @@ Function myIO_Panel()
 	// make global text wave to store paths and output folder
 	Make/T/O/N=5 PathWave
 	// make global numeric wave for other variables
-	Make/O/N=7 gVarWave={0,0,1,1,5,0,0}
+	Make/O/N=8 gVarWave={0,0,1,1,5,0,0,0}
 	DoWindow/K FilePicker
 	NewPanel/N=FilePicker/K=1/W=(81,73,774,298)
 	Button SelectFile1,pos={12,10},size={140,20},proc=ButtonProc,title="Select Ch1 TIFF"
@@ -30,6 +30,7 @@ Function myIO_Panel()
 	CheckBox normCheck,pos={12,161},size={69,14},title="Normalise channels",value= gVarWave[2]
 	CheckBox tiffCheck,pos={12,181},size={69,14},title="Make Coloc Tiffs",value= gVarWave[3]
 	CheckBox soloCheck,pos={12,201},size={69,14},title="Do all plots?",value= gVarWave[6]
+	CheckBox randCheck,pos={168,201},size={69,14},title="Randomise?",value= gVarWave[7]
 	
 	SetVariable bg0SetVar,pos={168,161},size={166,15},title="Background Ch1:",format="%g",value= gVarWave[0]
 	SetVariable bg1SetVar,pos={168,181},size={166,15},title="Background Ch2:",format="%g",value= gVarWave[1]
@@ -101,6 +102,8 @@ Function ButtonProc(ctrlName) : ButtonControl
 				gVarWave[3] = V_Value
 				ControlInfo/W=FilePicker soloCheck
 				gVarWave[6] = V_Value
+				ControlInfo/W=FilePicker randCheck
+				gVarWave[7] = V_Value
 				LoadAllFiles(PathWave)
 				break
  
@@ -157,6 +160,7 @@ Function Make2ChMasks(nCh)
 	endif
 	
 	WAVE/Z ComDet_1,ComDet_2
+	WAVE/Z gVarWave
 	
 	Variable xx,yy,zz
 	Variable nSpots
@@ -189,7 +193,17 @@ Function Make2ChMasks(nCh)
 		Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_3
 		// make an AND mask of the two channels in mask_3
 		mask_3 = (mask_1[p][q][r] == 1 && mask_2[p][q][r] == 1) ? 1 : 0
+		// was randomise checked?
+		if (gVarWave[7] == 1)
+			Wave randWave = RandomiseAndCheck(mask_2)
+			// mask_4 will be mask_2 randomised, mask_5 will hold AND result
+			Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_4,mask_5
+			Mask_4 = mask_2[p][q][randWave[p]]
+			// make an AND mask of the two channels in mask_5
+			mask_5 = (mask_1[p][q][r] == 1 && mask_4[p][q][r] == 1) ? 1 : 0
+		endif
 	endif
+	
 	// now call next function
 	MakeMaskedImagesAndAnalyse(nCh)
 End
@@ -215,7 +229,8 @@ End
 Function MakeMaskedImagesAndAnalyse(nCh)
 	Variable nCh
 	
-	WAVE ch1tiff, ch2tiff
+	WAVE/Z ch1tiff, ch2tiff
+	WAVE/Z gVarWave
 	
 	String mList = ""
 	if ((nCh & 2^0) != 0) // bit 0 is set
@@ -226,13 +241,17 @@ Function MakeMaskedImagesAndAnalyse(nCh)
 	endif
 	if ((nCh & 2^0) != 0 && (nCh & 2^1) !=0) // bit 0 AND bit 1 are set
 		mList += "mask_3;"
+		if (gVarWave[7] == 1)
+			mList += "mask_4;"
+		endif
 	endif
 	
 	String mName
+	Variable iLimit = min(3,ItemsInList(mList))
 	
-	Variable i,j
+	Variable i
 	
-	for(i = 0; i < ItemsInList(mList); i += 1)
+	for(i = 0; i < iLimit; i += 1)
 		mName = StringFromList(i, mList)
 		Wave mask = $mName
 		MatrixOp/O out0 = ch1tiff * mask
@@ -244,7 +263,6 @@ Function MakeMaskedImagesAndAnalyse(nCh)
 	SpotPlotOverTime(mList,9)	// divide pixels by 9 to get plot in units of numbers of spots
 	MakeFinalImage(nCh)
 End
-
 
 ///	@param	m0		First channel TIFF stack
 ///	@param	m1		Second channel TIFF stack
@@ -459,7 +477,7 @@ Function SpotPlotOverTime(mList,divVar)
 		endif
 	endfor
 	// declare all possible waves
-	WAVE/Z nSpot_1,nSpot_2,nSpot_3
+	WAVE/Z nSpot_1,nSpot_2,nSpot_3,nSpot_4
 	// find max value for right axis
 	if(nMask > 1)
 		maxValR = wavemax(nSpot_3)
@@ -520,6 +538,28 @@ Function SpotPlotOverTime(mList,divVar)
 		SavePICT/O/P=OutputTIFFFolder/E=-7/B=288 as tiffName
 	endfor
 	CloseMovie
+	
+	// Display randomised version in a window for reference if option was ticked
+	if(gVarWave[7] == 1)
+		DoWindow/K randPlot
+		Display/N=randPlot/W=(0,0,208,208)
+		if(WaveExists(nSpot_3) == 1)
+			AppendToGraph/W=randPlot nSpot_3
+			ModifyGraph rgb(nSpot_3)=(251*257,190*257,39*257,32768)
+		endif
+		if(WaveExists(nSpot_4) == 1)
+			AppendToGraph/W=randPlot nSpot_4
+			ModifyGraph rgb(nSpot_4)=(251*257,190*257,39*257,32768 / 2)
+		endif
+		ModifyGraph/W=spotPlot mode=0
+		ModifyGraph/W=spotPlot lsize=2
+		Label/W=spotPlot left "Number of spots (\\K(58339,7196,7196)ch1 \\K(5397,60138,5397)ch2\\K(0,0,0))"
+		Label/W=spotPlot bottom "Time (s)"
+		SetAxis/W=spotPlot bottom 0,((nFrames-1) * secPerFrame)
+		SetAxis/W=spotPlot left 0,NearestTon(maxValR)
+		Label/W=spotPlot left "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
+	endif
+	
 End
 
 // for axis scaling
@@ -686,4 +726,32 @@ Static Function LoadAndStack(folderStr)
 		i+=1
 	while(1)
 	ImageTransform/K stackImages $firstWave
+End
+
+Function/WAVE RandomiseAndCheck(w0)
+	Wave w0
+	
+	// nRows of randWave will be the number of frames of movie w0
+	Variable nRows = dimsize(w0,2)
+	
+	Variable tempVar=0
+	Variable i,j=0
+	
+	do
+		Make/O/N=(nRows) randWave,keyw1
+		randWave = p
+		keyw1 = abs(enoise(1))
+		Sort keyw1 randWave,keyw1 // randWave is now randomised
+		tempVar = 0
+	
+		for (i = 0; i < nRows; i += 1)
+			if(randWave[i] >= i - 2 && randWave[i] <= 2)
+				tempVar = 1
+			endif
+		endfor
+		j += 1
+	while (tempVar == 0 || j == 1000)
+	
+	KillWaves/Z keyw1
+	return randWave
 End
