@@ -196,11 +196,17 @@ Function Make2ChMasks(nCh)
 		// was randomise checked?
 		if (gVarWave[7] == 1)
 			Wave randWave = RandomiseAndCheck(mask_2)
-			// mask_4 will be mask_2 randomised, mask_5 will hold AND result
+			// make a deep layer 3D wave (beam)
+			Redimension/N=(1,1,dimsize(ch1tiff,2)) randWave
+			// mask_5 will be mask_2 randomised, mask_4 will hold AND result
 			Make/O/B/U/N=(dimsize(ch1tiff,0),dimsize(ch1tiff,1),dimsize(ch1tiff,2)) mask_4,mask_5
-			Mask_4 = mask_2[p][q][randWave[p]]
+			mask_5 = mask_2[p][q][randWave[0][0][r]]
 			// make an AND mask of the two channels in mask_5
-			mask_5 = (mask_1[p][q][r] == 1 && mask_4[p][q][r] == 1) ? 1 : 0
+			mask_4 = (mask_1[p][q][r] == 1 && mask_5[p][q][r] == 1) ? 1 : 0
+			// print if there is likely to be an error
+			if(gVarWave[5] > 0 && gVarWave[5] < 10)
+				print "Too few frames for randomisation."
+			endif
 		endif
 	endif
 	
@@ -511,9 +517,10 @@ Function SpotPlotOverTime(mList,divVar)
 	
 	String wList = ReplaceString("mask",mList,"nSpot")
 	String iString, tiffName
+	Variable jlimit = min(3,nMask)
 	
 	for(i = 0; i < nFrames; i += 1)
-		for(j = 0; j < nMask; j +=1)
+		for(j = 0; j < jlimit; j +=1)
 			wName = StringFromList(j,wList)
 			ReplaceWave/W=spotPlot trace=$wName, $wName[0,i]
 		endfor
@@ -551,13 +558,13 @@ Function SpotPlotOverTime(mList,divVar)
 			AppendToGraph/W=randPlot nSpot_4
 			ModifyGraph rgb(nSpot_4)=(251*257,190*257,39*257,32768 / 2)
 		endif
-		ModifyGraph/W=spotPlot mode=0
-		ModifyGraph/W=spotPlot lsize=2
-		Label/W=spotPlot left "Number of spots (\\K(58339,7196,7196)ch1 \\K(5397,60138,5397)ch2\\K(0,0,0))"
-		Label/W=spotPlot bottom "Time (s)"
-		SetAxis/W=spotPlot bottom 0,((nFrames-1) * secPerFrame)
-		SetAxis/W=spotPlot left 0,NearestTon(maxValR)
-		Label/W=spotPlot left "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
+		ModifyGraph/W=randPlot mode=0
+		ModifyGraph/W=randPlot lsize=2
+		Label/W=randPlot left "Number of spots (\\K(58339,7196,7196)ch1 \\K(5397,60138,5397)ch2\\K(0,0,0))"
+		Label/W=randPlot bottom "Time (s)"
+		SetAxis/W=randPlot bottom 0,((nFrames-1) * secPerFrame)
+		SetAxis/W=randPlot left 0,NearestTon(maxValR)
+		Label/W=randPlot left "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
 	endif
 	
 End
