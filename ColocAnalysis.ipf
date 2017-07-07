@@ -511,7 +511,7 @@ Function SpotPlotOverTime(mList,divVar)
 	SetAxis/W=spotPlot bottom 0,((nFrames-1) * secPerFrame)
 	SetAxis/W=spotPlot left 0,NearestTon(maxValL)
 	if(nMask > 1)
-		SetAxis/W=spotPlot right 0,NearestTon(maxValR)
+		SetAxis/W=spotPlot right 0,NearestTen(maxValR)
 		Label/W=spotPlot right "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
 	endif
 	
@@ -563,7 +563,7 @@ Function SpotPlotOverTime(mList,divVar)
 		Label/W=randPlot left "Number of spots (\\K(58339,7196,7196)ch1 \\K(5397,60138,5397)ch2\\K(0,0,0))"
 		Label/W=randPlot bottom "Time (s)"
 		SetAxis/W=randPlot bottom 0,((nFrames-1) * secPerFrame)
-		SetAxis/W=randPlot left 0,NearestTon(maxValR)
+		SetAxis/W=randPlot left 0,NearestTen(maxValR)
 		Label/W=randPlot left "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
 	endif
 	
@@ -577,6 +577,17 @@ Static Function NearestTon(value)
 	value /=100
 	Variable newVal = ceil(value)
 	newVal *=100
+	return newVal
+End
+
+// for axis scaling
+///	@param	value				this is the input value that requires rounding up
+Static Function NearestTen(value)
+	Variable value
+	
+	value /=10
+	Variable newVal = ceil(value)
+	newVal *=10
 	return newVal
 End
 
