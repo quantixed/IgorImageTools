@@ -54,6 +54,7 @@ Function ButtonProc(ctrlName) : ButtonControl
 					return -1
 				endif
 				PathWave[0] = S_fileName
+				PathWave[2] = ReplaceString(".tif",S_fileName,".xls")
 				break
  
 			case "SelectFile2"	:
@@ -63,6 +64,7 @@ Function ButtonProc(ctrlName) : ButtonControl
 					return -1
 				endif
 				PathWave[1] = S_fileName
+				PathWave[3] = ReplaceString(".tif",S_fileName,".xls")
 				break
 			
 			case "SelectFile3"	:
@@ -108,7 +110,7 @@ End
  
 Function LoadAllFiles(path)
 	Wave/T path
-	
+	Variable timer = startmstimer
 	// Load channel 1 and 2 tiff
 	ImageLoad/T=tiff/N=ch1tiff/O/S=0/C=-1 path[0]
 	ImageLoad/T=tiff/N=ch2tiff/O/S=0/C=-1 path[1]
@@ -139,6 +141,9 @@ Function LoadAllFiles(path)
 	else
 		Print "No ComDet files!"
 	endif
+	Print "LoadAllFiles takes"
+	printf "%g\r", stopmstimer(timer)/1e6
+	SaveExperiment/P=outputFolder as "ComDetPlots.pxp"
 end
 
 /// @param	nCh	bit parameter. Tells function which ComDet files were loaded
