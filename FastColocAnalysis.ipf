@@ -391,18 +391,16 @@ Function SpotPlotOverTime(mList,divVar)
 		Label/W=randPlot left "Number of spots (\\K(64507,48830,10023)ch1 " + U+2229 + " ch2\\K(0,0,0))"
 	endif
 	
-	// export graphs as eps (will work on Windows as well as on a Mac)
-	DoWindow/F spotPlot
+	// export graphs as eps (on Windows, PDF on a Mac)
 	if(defined(WINDOWS) == 1)
-		SavePICT/E=-3/P=outputFolder as "spotPlot.eps"
+		SavePICT/WIN=spotPlot/E=-3/P=outputFolder as "spotPlot.eps"
 	else
-		SavePICT/E=-2/P=outputFolder as "spotPlot.pdf"
+		SavePICT/WIN=spotPlot/E=-2/P=outputFolder as "spotPlot.pdf"
 	endif
-	DoWindow/F randPlot
 	if(defined(WINDOWS) == 1)
-		SavePICT/E=-3/P=outputFolder as "randPlot.eps"
+		SavePICT/WIN=randPlot/E=-3/P=outputFolder as "randPlot.eps"
 	else
-		SavePICT/E=-2/P=outputFolder as "randPlot.pdf"
+		SavePICT/WIN=randPlot/E=-2/P=outputFolder as "randPlot.pdf"
 	endif
 	KillWaves/Z mask_1,mask_2,mask_3,mask_4,mask_5
 End
