@@ -3,6 +3,7 @@
 
 Menu "Macros"
 	"Fast Coloc Analysis...",  myIO_Panel()
+	"Print Graphs", PrintAndClose()
 End
 
 Function myIO_Panel()
@@ -453,4 +454,22 @@ Function/WAVE RandomiseAndCheck(w0)
 	
 	KillWaves/Z keyw1
 	return randWave
+End
+
+// Utility function to just save the graphs and close experiment
+Function PrintAndClose()
+	Pathinfo home
+	NewPath/C/O/Q/Z OutputFolder S_path
+	// export graphs as eps (on Windows, PDF on a Mac)
+	if(defined(WINDOWS) == 1)
+		SavePICT/WIN=spotPlot/E=-3/P=outputFolder as "spotPlot.eps"
+	else
+		SavePICT/WIN=spotPlot/E=-2/P=outputFolder as "spotPlot.pdf"
+	endif
+	if(defined(WINDOWS) == 1)
+		SavePICT/WIN=randPlot/E=-3/P=outputFolder as "randPlot.eps"
+	else
+		SavePICT/WIN=randPlot/E=-2/P=outputFolder as "randPlot.pdf"
+	endif
+	Execute/P "NEWEXPERIMENT "
 End

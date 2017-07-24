@@ -11,6 +11,10 @@ A workflow to analyse colocalisation in IgorPro (IP7 only). Select Coloc Analysi
 	- overlap between ch1 ch2
 - a line plot to show the number of spots detected for each channel and the number of spots which coincide.
 
+A randomised version is also used for comparison where no two timepoints match up to test for chance colocalisation.
+
+There is a fast version of this code called `FastColocAnalysis` which just makes the line plots and saves them as PDF.
+
 ### Montages.ipf
 
 Collection of procedures to arrange a TIFF stack into an m x n array, with specified grouting. *IP7 only*. Works on 8-bit images only.
