@@ -22,3 +22,11 @@ Collection of procedures to arrange a TIFF stack into an m x n array, with speci
 ### CorrectDrift.ipf
 
 Correct for bleach or other drift using this simple UI. Choose between a quick and dirty method (using a line between two points), line fit to baseline or exponential fit to data to subtract from a copy of your wave.
+
+### RandomiseImage.ipf
+
+Randomise pixel locations in an image. 2D and 3D functions available.
+
+### PixelValuesOfImage.ipf
+
+These functions will make a version of the image with the actual pixel values overlaid. It is intended for use with small grayscale (8-bit) images.
