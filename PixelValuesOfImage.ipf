@@ -1,13 +1,14 @@
 #pragma TextEncoding = "MacRoman"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
-// These procedures will take an image and make a new image with the pixel values overlaid.
+// This procedure will take an image and make a new image with the pixel values overlaid.
+// It offers the result to be saved as a PDF.
 // It is intended for small grayscale images.
 
 ///	@param	m0	2D matrix (image) to be represented as pixel values
 Function SavePixelValue(m0)
 	Wave m0
 	// check input wave
-	if(DimSize(m0,2) > 1 || DimSize(m0,3))
+	if(DimSize(m0,2) > 1 || DimSize(m0,3) > 1)
 		DoAlert 0, "Grayscale images only."
 		return -1
 	elseif(WaveType(m0) != 72)
