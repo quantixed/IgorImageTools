@@ -1,6 +1,88 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
-#include <MatrixToXYZ>
+
+// Load in two images
+// Create M_ImageThesh for both, i.e. duplicate and give unique names
+// Feed these into AnimatingLogos function
+
+Function AnimatingLogos(m0,m2)
+	Wave m0,m2
+	
+	ConvertMatrixToXYZTriplet(m0,"tripletA")
+	Wave tripletA
+	Make/O/N=(DimSize(tripletA,0)) xA,yA
+	xA[] = (tripletA[p][2] == 0) ? tripletA[p][0] : NaN
+	yA[] = (tripletA[p][2] == 0) ? tripletA[p][1] : NaN
+	WaveTransform zapnans xA
+	WaveTransform zapnans yA
+	Concatenate/O/KILL {xA,yA}, matA
+	
+	ConvertMatrixToXYZTriplet(m2,"tripletB")
+	Wave tripletB
+	Make/O/N=(DimSize(tripletB,0)) xB,yB
+	xB[] = (tripletB[p][2] == 0) ? tripletB[p][0] : NaN
+	yB[] = (tripletB[p][2] == 0) ? tripletB[p][1] : NaN
+	WaveTransform zapnans xB
+	WaveTransform zapnans yB
+	Concatenate/O/KILL {xB,yB}, matB
+	
+	Variable maxW, maxH
+	// centralise the coord sets
+	if(DimSize(m0,0) > DimSize(m2,0))
+		matB[][0] += (DimSize(m0,0) / 2) - (DimSize(m2,0) / 2)
+		maxW = DimSize(m0,0)
+	elseif(DimSize(m0,0) < DimSize(m2,0))
+		matA[][0] += (DimSize(m2,0) / 2) - (DimSize(m0,0) / 2)
+		maxW = DimSize(m2,0)
+	else // if they are equal
+		maxW = DimSize(m0,0)
+	endif
+	
+	if(DimSize(m0,1) > DimSize(m2,1))
+		matB[][1] += (DimSize(m0,1) / 2) - (DimSize(m2,1) / 2)
+		maxH = DimSize(m0,1)
+	elseif(DimSize(m0,1) < DimSize(m2,1))
+		matA[][1] += (DimSize(m2,1) / 2) - (DimSize(m0,1) / 2)
+		maxH = DimSize(m2,1)
+	else
+		maxH = DimSize(m0,1)
+	endif
+	
+	AnimateThis(matA,matB,16,maxW,maxH)
+End
+
+// Taken from MatrixToXYZ.ipf
+STATIC Function ConvertMatrixToXYZTriplet(matrixWave, outputName)
+	Wave matrixWave
+	String outputName	
+	
+	Variable dimx = DimSize(matrixWave,0)
+	Variable dimy = DimSize(matrixWave,1)
+	Variable rows = dimx*dimy
+	Make/O/N=(rows,3) $outputName
+	WAVE TripletWave= $outputName
+	
+	Variable xStart,xDelta
+	Variable yStart,yDelta
+	
+	xStart = DimOffset(matrixWave,0)
+	yStart = DimOffset(matrixWave,1)
+	xDelta = DimDelta(matrixWave,0)
+	yDelta = DimDelta(matrixWave,1)
+	
+	Variable i, j, count=0
+	Variable xVal, yVal
+	for(i = 0; i < dimy; i += 1)		// i is y (column)
+		yVal = yStart + i * yDelta
+		for(j = 0; j < dimx; j += 1)	// j is x (row)
+			xVal = xStart + j * xDelta
+			TripletWave[count][0] = xVal
+			TripletWave[count][1] = yVal
+			TripletWave[count][2] = matrixWave[j][i]	// [row][col]
+			count += 1
+		endfor
+	endfor
+End
 
 Function AnimateThis(m0,m2,frames,width,height)
 	Wave m0,m2 // image 1 and image 2 as xy coords
@@ -60,19 +142,9 @@ Function AnimateThis(m0,m2,frames,width,height)
 		imgName = "output_" + num2str(i) + ".png"
 		SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	endfor
+	KillWindow/Z imgWin
 	KillWaves/Z M_Animate
 End
-
-//Function/WAVE Subsample(m0,nRow)
-//	Wave m0
-//	Variable nRow
-//	
-//	Make/O/FREE/N=(DimSize(m0,0)) tempW = p
-//	StatsSample
-//	Wave m1
-//	
-//	return m1
-//End
 
 Function/WAVE RandomiseMat(m0,ww,hh)
 	Wave m0 // xy coords
@@ -92,28 +164,4 @@ Function/WAVE RandomiseMat(m0,ww,hh)
 	Wave m1 = $mName
 	
 	return m1
-End
-
-Function RandomiseXY(x0,y0,ww,hh)
-	Wave x0, y0
-	Variable ww,hh
-	String xName = NameOfWave(x0) + "_rand"
-	Duplicate/O x0, $xName
-	Wave x1 = $xName
-	String yName = NameOfWave(y0) + "_rand"
-	Duplicate/O y0, $yName
-	Wave y1 = $yName
-	Variable nRow = numpnts(x1)
-	Variable midW = floor(ww / 2)
-	Variable midH = floor(hh / 2)
-	
-	x1[] = midW + enoise(midW)
-	y1[] = midH + enoise(midH)
-	
-//	Variable i
-//	
-//	for(i = 0; i < nRow; i += 1)
-//		x1[i] = midW + enoise(midW)
-//		y1[i] = midH + enoise(midH)
-//	endfor
 End
