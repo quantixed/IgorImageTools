@@ -25,6 +25,7 @@ Function AnimatingLogos(m0,m2)
 	WaveTransform zapnans xB
 	WaveTransform zapnans yB
 	Concatenate/O/KILL {xB,yB}, matB
+	KillWaves/Z tripletA,tripletB
 	
 	Variable maxW, maxH
 	// centralise the coord sets
@@ -49,6 +50,7 @@ Function AnimatingLogos(m0,m2)
 	endif
 	
 	AnimateThis(matA,matB,16,maxW,maxH)
+	KillWaves/Z matA,matB
 End
 
 // Taken from MatrixToXYZ.ipf
@@ -95,9 +97,9 @@ Function AnimateThis(m0,m2,frames,width,height)
 //	Wave s2 = Subsample(m2,minRow)
 	StatsSample/MC/N=(minRow) m0
 	WAVE/Z M_Sampled
-	Duplicate/O/FREE M_Sampled, s0
+	Duplicate/O M_Sampled, s0
 	StatsSample/MC/N=(minRow) m2
-	Duplicate/O/FREE M_Sampled, s2
+	Duplicate/O M_Sampled, s2
 	// randomise to get s1 and s3
 	Wave s1 = RandomiseMat(s0,width,height)
 	Wave s3 = RandomiseMat(s2,width,height)
@@ -120,8 +122,8 @@ Function AnimateThis(m0,m2,frames,width,height)
 	
 	Concatenate/O/NP=2 {tempMat0,s1,tempMat1,s2,tempMat2,s3,tempMat3,s0}, M_Animate
 	KillWindow/Z imgWin
-	// could hide this window for speed
-	Display/N=imgWin M_Animate[][1][0] vs M_Animate[][0][0]
+	// make window
+	Display/N=imgWin/W=(35,45,500,500)/HIDE=1 M_Animate[][1][0] vs M_Animate[][0][0]
 	// format graph window
 	SetAxis/W=imgWin left height,0
 	SetAxis/W=imgWin bottom 0,width
@@ -132,18 +134,21 @@ Function AnimateThis(m0,m2,frames,width,height)
 	ModifyGraph/W=imgWin rgb=(65535,0,0,32768)
 	// save first frame
 	NewPath/M="Choose output folder"/O/Q/Z outputFolder
-	String imgName = "output_0.png"
-	SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
+	i = 0
 	Variable nFrame = DimSize(M_Animate,2)
+	String numstr = PadNumber(i,nFrame)
+	String imgName = "output_" + numstr + ".png"
+	SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	
 	for(i = 1; i < nFrame; i += 1)
 		ReplaceWave/W=imgWin trace=M_Animate, M_Animate[][1][i]
 		ReplaceWave/W=imgWin /X trace=M_Animate, M_Animate[][0][i]
-		imgName = "output_" + num2str(i) + ".png"
+		numstr = PadNumber(i,nFrame)
+		imgName = "output_" + numstr + ".png"
 		SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	endfor
 	KillWindow/Z imgWin
-	KillWaves/Z M_Animate
+	KillWaves/Z M_Animate,s0,s1,s2,s3,M_Sampled
 End
 
 Function/WAVE RandomiseMat(m0,ww,hh)
@@ -164,4 +169,18 @@ Function/WAVE RandomiseMat(m0,ww,hh)
 	Wave m1 = $mName
 	
 	return m1
+End
+
+Function/S PadNumber(num,maxnum)
+	Variable num,maxnum
+	
+	Variable pad = strlen(num2str(maxnum))
+	
+	String s = num2str(num)
+	
+	do
+		s = "0" + s
+	while(strlen(s) < pad + 1)
+
+	return s
 End
