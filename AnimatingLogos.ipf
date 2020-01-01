@@ -4,6 +4,8 @@
 // Load in two images
 // Create M_ImageThesh for both, i.e. duplicate and give unique names
 // Feed these into AnimatingLogos function
+// then use ffmpeg to make the movie, example:
+// ffmpeg -framerate 15 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=480:-2 out.mp4
 
 Function AnimatingLogos(m0,m2)
 	Wave m0,m2
@@ -49,7 +51,7 @@ Function AnimatingLogos(m0,m2)
 		maxH = DimSize(m0,1)
 	endif
 	
-	AnimateThis(matA,matB,16,maxW,maxH)
+	AnimateThis(matA,matB,16,maxW,maxH,0.1)
 	KillWaves/Z matA,matB
 End
 
@@ -86,11 +88,12 @@ STATIC Function ConvertMatrixToXYZTriplet(matrixWave, outputName)
 	endfor
 End
 
-Function AnimateThis(m0,m2,frames,width,height)
+Function AnimateThis(m0,m2,frames,width,height,quality)
 	Wave m0,m2 // image 1 and image 2 as xy coords
-	Variable frames,width,height
+	Variable frames,width,height,quality
 	
-	Variable minRow = floor(0.5 * (min(DimSize(m0,0),DimSize(m2,0))))
+	quality = limit(quality,0.0000001,1)
+	Variable minRow = floor(quality * (min(DimSize(m0,0),DimSize(m2,0))))
 	
 	// subsample minRow from both coord sets
 //	Wave s0 = Subsample(m0,minRow)
@@ -131,24 +134,25 @@ Function AnimateThis(m0,m2,frames,width,height)
 	ModifyGraph/W=imgWin noLabel=2,axThick=0,standoff=0
 	ModifyGraph/W=imgWin margin=1
 	ModifyGraph/W=imgWin mode=2
-	ModifyGraph/W=imgWin rgb=(65535,0,0,32768)
+//	ModifyGraph/W=imgWin rgb=(65535,0,0,32768)
+	Make/O/N=(nRow) colorIndexW = p
+	ModifyGraph/W=imgWin zcolor(M_Animate)={colorIndexW,*,*,Rainbow}
 	// save first frame
 	NewPath/M="Choose output folder"/O/Q/Z outputFolder
 	i = 0
 	Variable nFrame = DimSize(M_Animate,2)
-	String numstr = PadNumber(i,nFrame)
-	String imgName = "output_" + numstr + ".png"
+	String imgName
+	sprintf imgName, "output%04d.png", i
 	SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	
 	for(i = 1; i < nFrame; i += 1)
 		ReplaceWave/W=imgWin trace=M_Animate, M_Animate[][1][i]
 		ReplaceWave/W=imgWin /X trace=M_Animate, M_Animate[][0][i]
-		numstr = PadNumber(i,nFrame)
-		imgName = "output_" + numstr + ".png"
+		sprintf imgName, "output%04d.png", i // limit is 9999 images
 		SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	endfor
 	KillWindow/Z imgWin
-	KillWaves/Z M_Animate,s0,s1,s2,s3,M_Sampled
+	KillWaves/Z M_Animate,s0,s1,s2,s3,M_Sampled,colorIndexW
 End
 
 Function/WAVE RandomiseMat(m0,ww,hh)
@@ -169,18 +173,4 @@ Function/WAVE RandomiseMat(m0,ww,hh)
 	Wave m1 = $mName
 	
 	return m1
-End
-
-Function/S PadNumber(num,maxnum)
-	Variable num,maxnum
-	
-	Variable pad = strlen(num2str(maxnum))
-	
-	String s = num2str(num)
-	
-	do
-		s = "0" + s
-	while(strlen(s) < pad + 1)
-
-	return s
 End
