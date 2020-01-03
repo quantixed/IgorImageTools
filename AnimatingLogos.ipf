@@ -1,12 +1,13 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 
-// Load in two images
+// Load two images into Igor and segment them using the Image threshold command
 // Create M_ImageThesh for both, i.e. duplicate and give unique names
 // Feed these into AnimatingLogos function
 // then use ffmpeg to make the movie, example:
 // ffmpeg -framerate 15 -pattern_type glob -i '*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=480:-2 out.mp4
 // ffmpeg -framerate 15 -pattern_type glob -i '*.png' -vf scale=480:-2 colour.gif
+// Note, you may want to change qual or the color of the output
 
 ///	@param	m0	2D wave of first segmented image
 ///	@param	m2	2D wave of second segmented image
@@ -57,7 +58,7 @@ Function AnimatingLogos(m0,m2)
 	endif
 	
 	// animate the transitions between the two images
-	AnimateThis(matA,matB,16,maxW,maxH,0.1)
+	AnimateThis(matA,matB,16,maxW,maxH,0.5)
 	KillWaves/Z matA,matB
 End
 
@@ -150,8 +151,8 @@ Function AnimateThis(m0,m2,frames,width,height,quality)
 	ModifyGraph/W=imgWin noLabel=2,axThick=0,standoff=0
 	ModifyGraph/W=imgWin margin=1
 	ModifyGraph/W=imgWin mode=2
-//		ModifyGraph/W=imgWin rgb=(65535,0,0,32768)
-		ModifyGraph/W=imgWin rgb=(203 * 257,32 * 257,39 * 257,32768)
+		ModifyGraph/W=imgWin rgb=(0,0,0,32768)
+//		ModifyGraph/W=imgWin rgb=(203 * 257,32 * 257,39 * 257,32768)
 //		Make/O/N=(nRow) colorIndexW = p
 //		ModifyGraph/W=imgWin zcolor(M_Animate)={colorIndexW,*,*,Rainbow}
 
@@ -161,13 +162,13 @@ Function AnimateThis(m0,m2,frames,width,height,quality)
 	Variable nFrame = DimSize(M_Animate,2)
 	String imgName
 	sprintf imgName, "output%04d.png", i
-	SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
+	SavePICT/O/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	
 	for(i = 1; i < nFrame; i += 1)
 		ReplaceWave/W=imgWin trace=M_Animate, M_Animate[][1][i]
 		ReplaceWave/W=imgWin /X trace=M_Animate, M_Animate[][0][i]
 		sprintf imgName, "output%04d.png", i // limit is 9999 images
-		SavePICT/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
+		SavePICT/O/WIN=imgWin/E=-5/RES=300/P=outputFolder as imgName
 	endfor
 	KillWindow/Z imgWin
 	KillWaves/Z M_Animate,s0,s1,s2,s3,M_Sampled,colorIndexW
